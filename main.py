@@ -210,9 +210,21 @@ class EntryDialog(QDialog):
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
             self,
         )
-        self.button_box.accepted.connect(self.accept)
+        self.button_box.accepted.connect(self.accept_if_valid)
         self.button_box.rejected.connect(self.reject)
         self.layout.addRow(self.button_box)
+
+    def accept_if_valid(self):
+        amount = self.amount_edit.value()
+        description = self.description_edit.text()
+        if amount != 0 and description:
+            self.accept()
+        else:
+            QMessageBox.warning(
+                self,
+                "Ungültiger Eintrag",
+                "Der Betrag darf nicht Null sein und die Beschreibung darf nicht leer sein.",
+            )
 
     def add_categories(self):
         hardcoded_categories = ["Kategorie 1", "Kategorie 2", "Kategorie 3"]
