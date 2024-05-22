@@ -3,33 +3,22 @@ import shutil
 import sys
 from collections import defaultdict
 from datetime import datetime
+from pathlib import Path
+from typing import ClassVar, Set
 
 import matplotlib.pyplot as plt
-from PyQt6.QtCore import QDate, Qt
-from PyQt6.QtGui import QIcon, QPixmap
-from PyQt6.QtWidgets import (
-    QApplication,
-    QComboBox,
-    QDateEdit,
-    QDialog,
-    QDialogButtonBox,
-    QDoubleSpinBox,
-    QFormLayout,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QMainWindow,
-    QMessageBox,
-    QPushButton,
-    QTableWidget,
-    QTableWidgetItem,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt6.QtCore import QDate
+from PyQt6.QtGui import QPixmap
+from PyQt6.QtWidgets import (QApplication, QComboBox, QDateEdit, QDialog,
+                             QDialogButtonBox, QDoubleSpinBox, QFormLayout,
+                             QHBoxLayout, QHeaderView, QLabel, QLineEdit,
+                             QMainWindow, QMessageBox, QPushButton,
+                             QTableWidget, QTableWidgetItem, QVBoxLayout,
+                             QWidget)
 
 
 class MicroAccounting(QMainWindow):
-    file_path = "example.csv"
+    file_path = "Buchhaltung.csv"
     data_changed = False
 
     def __init__(self):
@@ -84,11 +73,18 @@ class MicroAccounting(QMainWindow):
         else:
             event.accept()
 
-    def handle_item_changed(self, item):
+    def handle_item_changed(self, _item):
         self.data_changed = True
         self.update_pie_chart()
 
     def load_csv(self, file_path: str):
+        if not Path(file_path).is_file():
+            self.table_widget.setColumnCount(4)
+            self.table_widget.setHorizontalHeaderLabels(
+                ["Datum", "Ausgabe", "Wert", "Kategorie"]
+            )
+            return
+
         with open(file_path, newline="", encoding="utf-8") as file:
             reader = csv.reader(file)
             headers = next(reader)
@@ -105,6 +101,9 @@ class MicroAccounting(QMainWindow):
                         row_number, column_number, QTableWidgetItem(data)
                     )
 
+        self.table_widget.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch
+        )
         self.sort_table_by_date()
         self.update_pie_chart()
 
@@ -137,7 +136,7 @@ class MicroAccounting(QMainWindow):
         shutil.copyfile(file_path, backup_file_path)
 
     def open_entry_dialog(self):
-        dialog = EntryDialog(self)
+        dialog = EntryDialog(self, categories=self.get_used_categories())
         if dialog.exec():
             date = dialog.date_edit.date().toString("yyyy-MM-dd")
             description = dialog.description_edit.text()
@@ -159,6 +158,12 @@ class MicroAccounting(QMainWindow):
     def sort_table_by_date(self):
         self.table_widget.sortItems(0)
 
+    def get_used_categories(self):
+        categories = set()
+        for row in range(self.table_widget.rowCount()):
+            categories.add(self.table_widget.item(row, 3).text())
+        return categories
+
     def update_pie_chart(self):
         category_sums = defaultdict(float)
         for row in range(self.table_widget.rowCount()):
@@ -171,7 +176,7 @@ class MicroAccounting(QMainWindow):
 
         plt.figure(figsize=(6, 4))
         plt.pie(sums, labels=categories, autopct="%1.1f%%", startangle=140)
-        plt.title("Summen der Werte pro Kategorie")
+        plt.title("Ausgaben pro Kategorie")
         plt.axis("equal")
         plt.savefig("pie_chart.png")  # Save the pie chart as an image
         plt.close()
@@ -181,7 +186,11 @@ class MicroAccounting(QMainWindow):
 
 
 class EntryDialog(QDialog):
-    def __init__(self, parent=None):
+    DEFAULT_CATEGORIES: ClassVar[Set[str]] = set(
+        ["Lebensmittel", "Gastronomie", "Anschaffungen", "Anderes"]
+    )
+
+    def __init__(self, parent=None, categories=None):
         super().__init__(parent)
 
         self.setWindowTitle("Eintrag hinzufügen")
@@ -203,7 +212,11 @@ class EntryDialog(QDialog):
 
         self.category_edit = QComboBox(self)
         self.category_edit.setEditable(True)
-        self.add_categories()
+        if categories:
+            all_categories = self.DEFAULT_CATEGORIES | categories
+        else:
+            all_categories = self.DEFAULT_CATEGORIES
+        self.category_edit.addItems(all_categories)
         self.layout.addRow("Kategorie:", self.category_edit)
 
         self.button_box = QDialogButtonBox(
@@ -225,22 +238,6 @@ class EntryDialog(QDialog):
                 "Ungültiger Eintrag",
                 "Der Betrag darf nicht Null sein und die Beschreibung darf nicht leer sein.",
             )
-
-    def add_categories(self):
-        hardcoded_categories = ["Kategorie 1", "Kategorie 2", "Kategorie 3"]
-        used_categories = self.get_used_categories()
-        all_categories = set(hardcoded_categories + used_categories)
-        self.category_edit.addItems(all_categories)
-
-    def get_used_categories(self):
-        used_categories = set()
-        with open(MicroAccounting.file_path, newline="", encoding="utf-8") as file:
-            reader = csv.reader(file)
-            next(reader)  # Skip headers
-            for row in reader:
-                if len(row) > 3:  # Ensure there is a category column
-                    used_categories.add(row[3])
-        return list(used_categories)
 
 
 def main():
