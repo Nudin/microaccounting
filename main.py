@@ -174,19 +174,25 @@ class MicroAccounting(QMainWindow):
     def update_pie_chart(self):
         category_sums = defaultdict(float)
         for row in range(self.table_widget.rowCount()):
-            category = self.table_widget.item(row, 3).text()
-            amount = float(self.table_widget.item(row, 2).text().replace(",", "."))
-            category_sums[category] += amount
+            try:
+                category = self.table_widget.item(row, 3).text()
+                amount = float(self.table_widget.item(row, 2).text().replace(",", "."))
+                category_sums[category] += amount
+            except ValueError as e:
+                print("Error", e)
+        try:
+            categories = list(category_sums.keys())
+            sums = list(category_sums.values())
 
-        categories = list(category_sums.keys())
-        sums = list(category_sums.values())
-
-        plt.figure(figsize=(6, 4))
-        plt.pie(sums, labels=categories, autopct="%1.1f%%", startangle=140)
-        plt.title("Ausgaben pro Kategorie")
-        plt.axis("equal")
-        plt.savefig("pie_chart.png")  # Save the pie chart as an image
-        plt.close()
+            plt.figure(figsize=(6, 4))
+            plt.pie(sums, labels=categories, autopct="%i%%", startangle=140)
+            plt.title("Ausgaben pro Kategorie")
+            plt.axis("equal")
+            plt.savefig("pie_chart.png")  # Save the pie chart as an image
+            plt.close()
+        except Exception as e:
+            print("Error", e)
+            return
 
         pixmap = QPixmap("pie_chart.png")
         self.pie_chart_label.setPixmap(pixmap)
