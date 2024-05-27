@@ -8,7 +8,7 @@ from typing import ClassVar, Set
 
 import matplotlib.pyplot as plt
 from PyQt6.QtCore import QDate
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtGui import QIcon, QPixmap
 from PyQt6.QtWidgets import (QApplication, QComboBox, QDateEdit, QDialog,
                              QDialogButtonBox, QDoubleSpinBox, QFormLayout,
                              QHBoxLayout, QHeaderView, QLabel, QLineEdit,
@@ -39,10 +39,12 @@ class MicroAccounting(QMainWindow):
         self.inner_layout.addWidget(self.table_widget)
 
         self.save_button = QPushButton("Speichern")
+        self.save_button.setIcon(QIcon(QIcon.fromTheme("document-save")))
         self.save_button.clicked.connect(self.save_csv)
         self.layout.addWidget(self.save_button)
 
         self.add_entry_button = QPushButton("Eintrag hinzufügen")
+        self.add_entry_button.setIcon(QIcon(QIcon.fromTheme("list-add")))
         self.add_entry_button.clicked.connect(self.open_entry_dialog)
         self.layout.addWidget(self.add_entry_button)
 
@@ -207,6 +209,7 @@ class EntryDialog(QDialog):
         self.layout.addRow("Beschreibung:", self.description_edit)
 
         self.amount_edit = QDoubleSpinBox(self)
+        self.amount_edit.setSuffix(" €")
         self.amount_edit.setMaximum(9999999.99)
         self.layout.addRow("Betrag:", self.amount_edit)
 
