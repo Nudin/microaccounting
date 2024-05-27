@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (QApplication, QComboBox, QDateEdit, QDialog,
 class MicroAccounting(QMainWindow):
     file_path = "Buchhaltung.csv"
     data_changed = False
+    in_atomic_change = False
 
     def __init__(self):
         super().__init__()
@@ -75,9 +76,10 @@ class MicroAccounting(QMainWindow):
         else:
             event.accept()
 
-    def handle_item_changed(self, _item):
-        self.data_changed = True
-        self.update_pie_chart()
+    def handle_item_changed(self, _item=None):
+        if not self.in_atomic_change:
+            self.data_changed = True
+            self.update_pie_chart()
 
     def load_csv(self, file_path: str):
         if not Path(file_path).is_file():
@@ -146,6 +148,7 @@ class MicroAccounting(QMainWindow):
             category = dialog.category_edit.currentText()
 
             row_number = self.table_widget.rowCount()
+            self.in_atomic_change = True
             self.table_widget.insertRow(row_number)
             self.table_widget.setItem(row_number, 0, QTableWidgetItem(date))
             self.table_widget.setItem(row_number, 1, QTableWidgetItem(description))
@@ -153,6 +156,8 @@ class MicroAccounting(QMainWindow):
                 row_number, 2, QTableWidgetItem(f"{amount:.2f}".replace(".", ","))
             )
             self.table_widget.setItem(row_number, 3, QTableWidgetItem(category))
+            self.in_atomic_change = False
+            self.handle_item_changed()
 
             self.sort_table_by_date()
             self.data_changed = True
