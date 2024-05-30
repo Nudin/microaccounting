@@ -7,7 +7,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import ClassVar, Set
 
-import matplotlib.pyplot as plt
+import matplotlib
+
+matplotlib.use("QtAgg")
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+from matplotlib.figure import Figure
 from PyQt6.QtCore import QDate
 from PyQt6.QtGui import QFont, QPixmap
 from PyQt6.QtWidgets import (QApplication, QComboBox, QDateEdit, QDialog,
@@ -16,6 +20,15 @@ from PyQt6.QtWidgets import (QApplication, QComboBox, QDateEdit, QDialog,
                              QTableWidgetItem)
 
 from main_window import Ui_MainWindow
+
+
+class MplCanvas(FigureCanvasQTAgg):
+
+    def __init__(self, parent=None, width=5, height=4, dpi=100):
+        fig = Figure(figsize=(width, height), dpi=dpi)
+        self.fig = fig
+        self.axes = fig.add_subplot(111)
+        super(MplCanvas, self).__init__(fig)
 
 
 class MicroAccounting(QMainWindow, Ui_MainWindow):
@@ -29,6 +42,10 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.actionSave.triggered.connect(self.save_csv)
         self.actionAdd_Entry.triggered.connect(self.open_entry_dialog)
+
+        self.sc = MplCanvas(self, width=6, height=4, dpi=150)
+        self.sc.fig.suptitle("Ausgaben pro Kategorie")
+        self.horizontalLayout_4.addWidget(self.sc)
 
         self.load_csv(MicroAccounting.file_path)
 
@@ -163,19 +180,12 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
         try:
             categories = list(category_sums.keys())
             sums = list(category_sums.values())
-
-            plt.figure(figsize=(6, 4))
-            plt.pie(sums, labels=categories, autopct="%i%%", startangle=140)
-            plt.title("Ausgaben pro Kategorie")
-            plt.axis("equal")
-            plt.savefig("pie_chart.png")  # Save the pie chart as an image
-            plt.close()
+            self.sc.axes.cla()
+            self.sc.axes.pie(sums, labels=categories, autopct="%i%%", startangle=140)
+            self.sc.draw()
         except Exception as e:
             print("Error", e)
             return
-
-        pixmap = QPixmap("pie_chart.png")
-        self.pie_chart_label.setPixmap(pixmap)
 
 
 class EntryDialog(QDialog):
