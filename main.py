@@ -8,12 +8,10 @@ from pathlib import Path
 from typing import ClassVar, Set
 
 import matplotlib
-
-matplotlib.use("QtAgg")
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from PyQt6.QtCore import QDate
-from PyQt6.QtGui import QFont, QPixmap
+from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (QApplication, QComboBox, QDateEdit, QDialog,
                              QDialogButtonBox, QDoubleSpinBox, QFormLayout,
                              QHeaderView, QLineEdit, QMainWindow, QMessageBox,
@@ -21,14 +19,27 @@ from PyQt6.QtWidgets import (QApplication, QComboBox, QDateEdit, QDialog,
 
 from main_window import Ui_MainWindow
 
+matplotlib.use("QtAgg")
+
 
 class MplCanvas(FigureCanvasQTAgg):
 
-    def __init__(self, parent=None, width=5, height=4, dpi=100):
+    def __init__(self, parent=None, width=6, height=4, dpi=150, title=None):
         fig = Figure(figsize=(width, height), dpi=dpi)
-        self.fig = fig
         self.axes = fig.add_subplot(111)
-        super(MplCanvas, self).__init__(fig)
+        super().__init__(fig)
+        if title:
+            fig.suptitle(title)
+
+    def bar(self, *kargs, **kwargs):
+        self.axes.cla()
+        self.axes.bar(*kargs, **kwargs)
+        self.draw()
+
+    def pie(self, *kargs, **kwargs):
+        self.axes.cla()
+        self.axes.pie(*kargs, **kwargs)
+        self.draw()
 
 
 class MicroAccounting(QMainWindow, Ui_MainWindow):
@@ -43,12 +54,12 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
         self.actionSave.triggered.connect(self.save_csv)
         self.actionAdd_Entry.triggered.connect(self.open_entry_dialog)
 
-        self.sc = MplCanvas(self, width=6, height=4, dpi=150)
-        self.sc.fig.suptitle("Ausgaben pro Kategorie")
-        self.horizontalLayout_4.addWidget(self.sc)
+        self.cat_chart = MplCanvas(self, title="Ausgaben pro Kategorie")
+        self.month_chart = MplCanvas(self, title="Ausgaben pro Monat")
+        self.category_chart_layout.addWidget(self.cat_chart)
+        self.monthly_chart_layout.addWidget(self.month_chart)
 
         self.load_csv(MicroAccounting.file_path)
-
         self.table_widget.itemChanged.connect(self.handle_item_changed)
 
     def closeEvent(self, event):
@@ -74,7 +85,8 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
     def handle_item_changed(self, _item=None):
         if not self.in_atomic_change:
             self.data_changed = True
-            self.update_pie_chart()
+            self.sort_table_by_date()
+            self.update_charts()
 
     def load_csv(self, file_path: str):
         if not Path(file_path).is_file():
@@ -106,7 +118,7 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
             QHeaderView.ResizeMode.Stretch
         )
         self.sort_table_by_date()
-        self.update_pie_chart()
+        self.update_charts()
 
     def save_csv(self):
         self.create_backup(MicroAccounting.file_path)
@@ -128,7 +140,6 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
                     for column in range(self.table_widget.columnCount())
                 ]
                 writer.writerow(row_data)
-
         self.data_changed = False
 
     def create_backup(self, file_path: str):
@@ -168,24 +179,26 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
             categories.add(self.table_widget.item(row, 3).text())
         return categories
 
-    def update_pie_chart(self):
+    def update_charts(self):
         category_sums = defaultdict(float)
+        by_month = defaultdict(float)
         for row in range(self.table_widget.rowCount()):
             try:
+                _date = self.table_widget.item(row, 0).text()
+                month = datetime.strptime(_date, "%Y-%m-%d").strftime("%b %Y")
                 category = self.table_widget.item(row, 3).text()
                 amount = float(self.table_widget.item(row, 2).text().replace(",", "."))
                 category_sums[category] += amount
+                by_month[month] += amount
             except ValueError as e:
                 print("Error", e)
         try:
             categories = list(category_sums.keys())
             sums = list(category_sums.values())
-            self.sc.axes.cla()
-            self.sc.axes.pie(sums, labels=categories, autopct="%i%%", startangle=140)
-            self.sc.draw()
+            self.cat_chart.pie(sums, labels=categories, autopct="%i%%", startangle=140)
+            self.month_chart.bar(by_month.keys(), by_month.values())
         except Exception as e:
             print("Error", e)
-            return
 
 
 class EntryDialog(QDialog):
@@ -246,8 +259,8 @@ class EntryDialog(QDialog):
 
 def main():
     app = QApplication(sys.argv)
-    viewer = MicroAccounting()
-    viewer.show()
+    window = MicroAccounting()
+    window.show()
     sys.exit(app.exec())
 
 
