@@ -9,49 +9,26 @@ from typing import ClassVar, Set
 
 import matplotlib.pyplot as plt
 from PyQt6.QtCore import QDate
-from PyQt6.QtGui import QIcon, QPixmap
+from PyQt6.QtGui import QFont, QPixmap
 from PyQt6.QtWidgets import (QApplication, QComboBox, QDateEdit, QDialog,
                              QDialogButtonBox, QDoubleSpinBox, QFormLayout,
-                             QHBoxLayout, QHeaderView, QLabel, QLineEdit,
-                             QMainWindow, QMessageBox, QPushButton,
-                             QTableWidget, QTableWidgetItem, QVBoxLayout,
-                             QWidget)
+                             QHeaderView, QLineEdit, QMainWindow, QMessageBox,
+                             QTableWidgetItem)
+
+from main_window import Ui_MainWindow
 
 
-class MicroAccounting(QMainWindow):
+class MicroAccounting(QMainWindow, Ui_MainWindow):
     file_path = "Buchhaltung.csv"
     data_changed = False
     in_atomic_change = False
 
     def __init__(self):
-        super().__init__()
-
-        self.setWindowTitle("Buchhaltung")
-        self.setGeometry(100, 100, 1100, 600)
-
-        self.central_widget = QWidget()
-        self.setCentralWidget(self.central_widget)
-
-        self.layout = QVBoxLayout()
-        self.inner_layout = QHBoxLayout()
-        self.layout.addLayout(self.inner_layout)
-        self.central_widget.setLayout(self.layout)
-
-        self.table_widget = QTableWidget()
-        self.inner_layout.addWidget(self.table_widget)
-
-        self.save_button = QPushButton("Speichern")
-        self.save_button.setIcon(QIcon(QIcon.fromTheme("document-save")))
-        self.save_button.clicked.connect(self.save_csv)
-        self.layout.addWidget(self.save_button)
-
-        self.add_entry_button = QPushButton("Eintrag hinzufügen")
-        self.add_entry_button.setIcon(QIcon(QIcon.fromTheme("list-add")))
-        self.add_entry_button.clicked.connect(self.open_entry_dialog)
-        self.layout.addWidget(self.add_entry_button)
-
-        self.pie_chart_label = QLabel(self)
-        self.inner_layout.addWidget(self.pie_chart_label)
+        Ui_MainWindow.__init__(self)
+        QMainWindow.__init__(self)
+        self.setupUi(self)
+        self.actionSave.triggered.connect(self.save_csv)
+        self.actionAdd_Entry.triggered.connect(self.open_entry_dialog)
 
         self.load_csv(MicroAccounting.file_path)
 
@@ -103,7 +80,9 @@ class MicroAccounting(QMainWindow):
                 self.table_widget.insertRow(row_number)
                 for column_number, data in enumerate(row_data):
                     self.table_widget.setItem(
-                        row_number, column_number, QTableWidgetItem(data)
+                        row_number,
+                        column_number,
+                        QTableWidgetItem(data),
                     )
 
         self.table_widget.horizontalHeader().setSectionResizeMode(
@@ -205,7 +184,7 @@ class EntryDialog(QDialog):
     )
 
     def __init__(self, parent=None, categories=None):
-        super().__init__(parent)
+        super().__init__()
 
         self.setWindowTitle("Eintrag hinzufügen")
         self.setGeometry(200, 200, 400, 250)
