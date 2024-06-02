@@ -6,6 +6,7 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 from typing import ClassVar, Set
+from enum import IntEnum
 
 import matplotlib
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
@@ -41,6 +42,13 @@ class MplCanvas(FigureCanvasQTAgg):
         self.axes.pie(*kargs, **kwargs)
         self.draw()
 
+class DataColumns(IntEnum):
+    DATE = 0
+    SHOP = 1
+    DESC = 2
+    AMOUNT = 3
+    CATEGORY = 4
+
 
 class MicroAccounting(QMainWindow, Ui_MainWindow):
     file_path = "Buchhaltung.csv"
@@ -56,8 +64,10 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
 
         self.cat_chart = MplCanvas(self, title="Ausgaben pro Kategorie")
         self.month_chart = MplCanvas(self, title="Ausgaben pro Monat")
+        self.shop_chart = MplCanvas(self, title="Ausgaben pro Geschäft")
         self.category_chart_layout.addWidget(self.cat_chart)
         self.monthly_chart_layout.addWidget(self.month_chart)
+        self.shop_chart_layout.addWidget(self.shop_chart)
 
         self.load_csv(MicroAccounting.file_path)
         self.table_widget.itemChanged.connect(self.handle_item_changed)
@@ -90,7 +100,7 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
 
     def load_csv(self, file_path: str):
         if not Path(file_path).is_file():
-            self.table_widget.setColumnCount(4)
+            self.table_widget.setColumnCount(len(DataColumns))
             self.table_widget.setHorizontalHeaderLabels(
                 ["Datum", "Ausgabe", "Wert", "Kategorie"]
             )
@@ -151,6 +161,7 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
         dialog = EntryDialog(self, categories=self.get_used_categories())
         if dialog.exec():
             date = dialog.date_edit.date().toString("yyyy-MM-dd")
+            shop = dialog.shop_edit.text()
             description = dialog.description_edit.text()
             amount = dialog.amount_edit.value()
             category = dialog.category_edit.currentText()
@@ -158,12 +169,13 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
             row_number = self.table_widget.rowCount()
             self.in_atomic_change = True
             self.table_widget.insertRow(row_number)
-            self.table_widget.setItem(row_number, 0, QTableWidgetItem(date))
-            self.table_widget.setItem(row_number, 1, QTableWidgetItem(description))
+            self.table_widget.setItem(row_number, DataColumns.DATE, QTableWidgetItem(date))
+            self.table_widget.setItem(row_number, DataColumns.SHOP, QTableWidgetItem(shop))
+            self.table_widget.setItem(row_number, DataColumns.DESC, QTableWidgetItem(description))
             self.table_widget.setItem(
-                row_number, 2, QTableWidgetItem(f"{amount:.2f}".replace(".", ","))
+                row_number, DataColumns.AMOUNT, QTableWidgetItem(f"{amount:.2f}".replace(".", ","))
             )
-            self.table_widget.setItem(row_number, 3, QTableWidgetItem(category))
+            self.table_widget.setItem(row_number, DataColumns.CATEGORY, QTableWidgetItem(category))
             self.in_atomic_change = False
             self.handle_item_changed()
 
@@ -171,31 +183,38 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
             self.data_changed = True
 
     def sort_table_by_date(self):
-        self.table_widget.sortItems(0)
+        self.table_widget.sortItems(DataColumns.DATE)
 
     def get_used_categories(self):
         categories = set()
         for row in range(self.table_widget.rowCount()):
-            categories.add(self.table_widget.item(row, 3).text())
+            categories.add(self.table_widget.item(row, DataColumns.CATEGORY).text())
         return categories
 
     def update_charts(self):
         category_sums = defaultdict(float)
         by_month = defaultdict(float)
+        by_shop = defaultdict(float)
         for row in range(self.table_widget.rowCount()):
             try:
-                _date = self.table_widget.item(row, 0).text()
+                _date = self.table_widget.item(row, DataColumns.DATE).text()
                 month = datetime.strptime(_date, "%Y-%m-%d").strftime("%b %Y")
-                category = self.table_widget.item(row, 3).text()
-                amount = float(self.table_widget.item(row, 2).text().replace(",", "."))
+                category = self.table_widget.item(row, DataColumns.CATEGORY).text()
+                shop = self.table_widget.item(row, DataColumns.SHOP).text()
+                amount = float(self.table_widget.item(row, DataColumns.AMOUNT).text().replace(",", "."))
                 category_sums[category] += amount
                 by_month[month] += amount
+                if shop != "":
+                    by_shop[shop] += amount
             except ValueError as e:
                 print("Error", e)
         try:
             categories = list(category_sums.keys())
             sums = list(category_sums.values())
+            shops = list(by_shop.keys())
+            shop_sums = list(by_shop.values())
             self.cat_chart.pie(sums, labels=categories, autopct="%i%%", startangle=140)
+            self.shop_chart.pie(shop_sums, labels=shops, autopct="%i%%", startangle=140)
             self.month_chart.bar(by_month.keys(), by_month.values())
         except Exception as e:
             print("Error", e)
@@ -203,7 +222,7 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
 
 class EntryDialog(QDialog):
     DEFAULT_CATEGORIES: ClassVar[Set[str]] = set(
-        ["Lebensmittel", "Gastronomie", "Anschaffungen", "Anderes"]
+        ["Lebensmittel", "Gastronomie", "Anschaffungen", "Geschenk", "Anderes"]
     )
 
     def __init__(self, parent=None, categories=None):
@@ -218,6 +237,9 @@ class EntryDialog(QDialog):
         self.date_edit.setCalendarPopup(True)
         self.date_edit.setDate(QDate.currentDate())
         self.layout.addRow("Datum:", self.date_edit)
+
+        self.shop_edit = QLineEdit(self)
+        self.layout.addRow("Geschäft:", self.shop_edit)
 
         self.description_edit = QLineEdit(self)
         self.layout.addRow("Beschreibung:", self.description_edit)
