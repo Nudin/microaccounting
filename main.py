@@ -280,7 +280,7 @@ class EntryDialog(QDialog):
             all_categories = self.DEFAULT_CATEGORIES | categories
         else:
             all_categories = self.DEFAULT_CATEGORIES
-        self.category_edit.addItems(all_categories)
+        self.category_edit.addItems(sorted(all_categories))
         self.layout.addRow("Kategorie:", self.category_edit)
 
         self.button_box = QDialogButtonBox(
