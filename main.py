@@ -1,17 +1,18 @@
 #!/usr/bin/env python
 import csv
 import shutil
+import signal
 import sys
 from collections import defaultdict
 from datetime import datetime
+from enum import IntEnum
 from pathlib import Path
 from typing import ClassVar, Set
-from enum import IntEnum
 
 import matplotlib
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from PyQt6.QtCore import QDate
+from PyQt6.QtCore import QDate, QTimer
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (QApplication, QComboBox, QDateEdit, QDialog,
                              QDialogButtonBox, QDoubleSpinBox, QFormLayout,
@@ -21,6 +22,15 @@ from PyQt6.QtWidgets import (QApplication, QComboBox, QDateEdit, QDialog,
 from main_window import Ui_MainWindow
 
 matplotlib.use("QtAgg")
+
+window = None
+
+
+def sigint_handler(*args):
+    """Handler for the SIGINT signal."""
+    sys.stderr.write("\r")
+    if window:
+        window.close()
 
 
 class MplCanvas(FigureCanvasQTAgg):
@@ -41,6 +51,7 @@ class MplCanvas(FigureCanvasQTAgg):
         self.axes.cla()
         self.axes.pie(*kargs, **kwargs)
         self.draw()
+
 
 class DataColumns(IntEnum):
     DATE = 0
@@ -169,13 +180,23 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
             row_number = self.table_widget.rowCount()
             self.in_atomic_change = True
             self.table_widget.insertRow(row_number)
-            self.table_widget.setItem(row_number, DataColumns.DATE, QTableWidgetItem(date))
-            self.table_widget.setItem(row_number, DataColumns.SHOP, QTableWidgetItem(shop))
-            self.table_widget.setItem(row_number, DataColumns.DESC, QTableWidgetItem(description))
             self.table_widget.setItem(
-                row_number, DataColumns.AMOUNT, QTableWidgetItem(f"{amount:.2f}".replace(".", ","))
+                row_number, DataColumns.DATE, QTableWidgetItem(date)
             )
-            self.table_widget.setItem(row_number, DataColumns.CATEGORY, QTableWidgetItem(category))
+            self.table_widget.setItem(
+                row_number, DataColumns.SHOP, QTableWidgetItem(shop)
+            )
+            self.table_widget.setItem(
+                row_number, DataColumns.DESC, QTableWidgetItem(description)
+            )
+            self.table_widget.setItem(
+                row_number,
+                DataColumns.AMOUNT,
+                QTableWidgetItem(f"{amount:.2f}".replace(".", ",")),
+            )
+            self.table_widget.setItem(
+                row_number, DataColumns.CATEGORY, QTableWidgetItem(category)
+            )
             self.in_atomic_change = False
             self.handle_item_changed()
 
@@ -201,7 +222,11 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
                 month = datetime.strptime(_date, "%Y-%m-%d").strftime("%b %Y")
                 category = self.table_widget.item(row, DataColumns.CATEGORY).text()
                 shop = self.table_widget.item(row, DataColumns.SHOP).text()
-                amount = float(self.table_widget.item(row, DataColumns.AMOUNT).text().replace(",", "."))
+                amount = float(
+                    self.table_widget.item(row, DataColumns.AMOUNT)
+                    .text()
+                    .replace(",", ".")
+                )
                 category_sums[category] += amount
                 by_month[month] += amount
                 if shop != "":
@@ -280,9 +305,14 @@ class EntryDialog(QDialog):
 
 
 def main():
+    signal.signal(signal.SIGINT, sigint_handler)
     app = QApplication(sys.argv)
+    global window
     window = MicroAccounting()
     window.show()
+    timer = QTimer()
+    timer.start(500)  # You may change this if you wish.
+    timer.timeout.connect(lambda: None)  # Let the interpreter run each 500 ms.
     sys.exit(app.exec())
 
 
