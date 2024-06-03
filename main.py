@@ -80,6 +80,7 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
         self.monthly_chart_layout.addWidget(self.month_chart)
         self.shop_chart_layout.addWidget(self.shop_chart)
 
+        self.toolBar.setContextMenuPolicy(Qt.ContextMenuPolicy.PreventContextMenu)
         self.load_csv(MicroAccounting.file_path)
         self.table_widget.itemChanged.connect(self.handle_item_changed)
 
