@@ -10,9 +10,11 @@ from pathlib import Path
 from typing import ClassVar, Set
 
 import matplotlib
+import numpy as np
+import pandas as pd
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from PyQt6.QtCore import QAbstractTableModel, QDate, Qt, QTimer
+from PyQt6.QtCore import QAbstractTableModel, QDate, QLocale, Qt, QTimer
 from PyQt6.QtGui import QFont, QStandardItemModel
 from PyQt6.QtWidgets import (QApplication, QComboBox, QDateEdit, QDialog,
                              QDialogButtonBox, QDoubleSpinBox, QFormLayout,
@@ -34,9 +36,13 @@ def sigint_handler(*args):
 
 
 class ComboBoxDelegate(QStyledItemDelegate):
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+
     def createEditor(self, parent, option, index):
         comboBox = QComboBox(parent)
-        comboBox.addItems([str(i) for i in range(1, 9)])
+        comboBox.addItems(self.model.get_used_categories())
         comboBox.setEditable(True)
         return comboBox
 
@@ -67,35 +73,29 @@ class DateDelegate(QStyledItemDelegate):
 
 class MyTableModel(QAbstractTableModel):
     data_changed: bool
+    FIELDS = ["Datum", "Geschäft", "Ausgabe", "Wert", "Kategorie"]
 
     def __init__(self, file_path):
         super(MyTableModel, self).__init__()
         self.file_path = file_path
+        self.locale = QLocale()
         self.load_csv()
 
     def load_csv(self, file_path=None):
         if file_path is None:
             file_path = self.file_path
-        if not Path(file_path).is_file():
-            self.setHorizontalHeaderLabels(["Datum", "Ausgabe", "Wert", "Kategorie"])
-            self._data = [[]]
-            self.data_changed = False
-            return
+        if Path(file_path).is_file():
+            self._data = pd.read_csv(file_path)
+        else:
+            self._data = pd.DataFrame(columns=self.FIELDS)
+        self.data_changed = False
 
-        with open(file_path, newline="", encoding="utf-8") as file:
-            reader = csv.reader(file)
-            headers = next(reader)
-            self._data = [row for row in reader]
-            self.data_changed = False
-
-    def save_csv(self):
-        self.create_backup(self.file_path)
-        with open(MicroAccounting.file_path, "w", newline="", encoding="utf-8") as file:
-            writer = csv.writer(file)
-            headers = ["Datum", "Ausgabe", "Wert", "Kategorie"]  # FIXME
-            writer.writerow(headers)
-            writer.writerows(self._data)
-            self.data_changed = False
+    def save_csv(self, file_path=None):
+        if file_path is None:
+            file_path = self.file_path
+        self.create_backup(file_path)
+        self._data.to_csv(file_path)
+        self.data_changed = False
 
     def create_backup(self, file_path: str):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -106,15 +106,23 @@ class MyTableModel(QAbstractTableModel):
         return len(self._data)
 
     def columnCount(self, index=None):
-        return len(self._data[0])
+        return len(self._data.columns)
 
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
-        if role == Qt.ItemDataRole.DisplayRole or role == Qt.ItemDataRole.EditRole:
-            return self._data[index.row()][index.column()]
+        if role == Qt.ItemDataRole.DisplayRole:
+            data = self._data.iloc[index.row(), index.column()]
+            if not isinstance(data, str):
+                data = self.locale.toString(data, "f", 2)
+            return data
+        if role == Qt.ItemDataRole.EditRole:
+            data = self._data.iloc[index.row(), index.column()]
+            if not isinstance(data, str):
+                data = float(data)
+            return data
 
     def setData(self, index, value, role=Qt.ItemDataRole.EditRole):
         if role == Qt.ItemDataRole.EditRole:
-            self._data[index.row()][index.column()] = value
+            self._data.iloc[index.row(), index.column()] = value
             self.dataChanged.emit(
                 index, index, (Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole)
             )
@@ -123,7 +131,20 @@ class MyTableModel(QAbstractTableModel):
         return False
 
     def insertRow(self, date, description, shop, category, value):
-        self._data.append([date, shop, description, value, category])
+        new = pd.DataFrame(
+            [
+                {
+                    "Datum": date,
+                    "Geschäft": shop,
+                    "Ausgabe": description,
+                    "Wert": value,
+                    "Kategorie": category,
+                }
+            ]
+        )
+        self._data = pd.concat(
+            [self._data, new], ignore_index=True, copy=False
+        ).sort_values(by="Datum")
         self.layoutChanged.emit()
         self.data_changed = True
 
@@ -137,21 +158,15 @@ class MyTableModel(QAbstractTableModel):
     def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
         if role == Qt.ItemDataRole.DisplayRole:
             if orientation == Qt.Orientation.Horizontal:
-                return ["Date", "Shop", "Number", "Desc", "Category"][section]
+                return self.FIELDS[section]
             if orientation == Qt.Orientation.Vertical:
-                return f"{section + 1}"
-
-    def item(self, row, column):
-        return self._data[row][column]
+                return str(section + 1)
 
     def get_row(self, row):
-        return self._data[row]
+        return self._data.iloc[row]
 
     def get_used_categories(self):
-        categories = set()
-        for row in range(self.rowCount()):
-            categories.add(self._data[row][DataColumns.CATEGORY])
-        return categories
+        return set(self._data["Kategorie"])
 
 
 class MplCanvas(FigureCanvasQTAgg):
@@ -174,14 +189,6 @@ class MplCanvas(FigureCanvasQTAgg):
         self.draw()
 
 
-class DataColumns(IntEnum):
-    DATE = 0
-    SHOP = 1
-    DESC = 2
-    AMOUNT = 3
-    CATEGORY = 4
-
-
 class MicroAccounting(QMainWindow, Ui_MainWindow):
     file_path = "Buchhaltung.csv"
 
@@ -195,7 +202,7 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
         self.model = MyTableModel(self.file_path)
         self.table_widget.setModel(self.model)
 
-        self.delegate = ComboBoxDelegate()
+        self.delegate = ComboBoxDelegate(self.model)
         self.foo = DateDelegate()
         self.table_widget.setItemDelegateForColumn(4, self.delegate)
         self.table_widget.setItemDelegateForColumn(0, self.foo)
@@ -235,13 +242,11 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
             event.accept()
 
     def handle_item_changed(self, _item=None):
-        self.sort_table_by_date()
         self.update_charts()
 
     def load_csv(self, file_path: str):
         self.model.load_csv(file_path)
         self.model.layoutChanged.emit()
-        self.sort_table_by_date()
         self.update_charts()
 
     def save_csv(self):
@@ -265,12 +270,6 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
                 value=amount,
             )
             self.handle_item_changed()
-
-            self.sort_table_by_date()
-
-    def sort_table_by_date(self):
-        # self.model.sortItems(DataColumns.DATE)
-        pass
 
     def update_charts(self):
         category_sums = defaultdict(float)
