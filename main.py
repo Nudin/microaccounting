@@ -12,12 +12,12 @@ from typing import ClassVar, Set
 import matplotlib
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from PyQt6.QtCore import QDate, QTimer
-from PyQt6.QtGui import QFont
+from PyQt6.QtCore import QAbstractTableModel, QDate, Qt, QTimer
+from PyQt6.QtGui import QFont, QStandardItemModel
 from PyQt6.QtWidgets import (QApplication, QComboBox, QDateEdit, QDialog,
                              QDialogButtonBox, QDoubleSpinBox, QFormLayout,
                              QHeaderView, QLineEdit, QMainWindow, QMessageBox,
-                             QTableWidgetItem)
+                             QStyledItemDelegate, QTableView, QTableWidgetItem)
 
 from main_window import Ui_MainWindow
 
@@ -31,6 +31,127 @@ def sigint_handler(*args):
     sys.stderr.write("\r")
     if window:
         window.close()
+
+
+class ComboBoxDelegate(QStyledItemDelegate):
+    def createEditor(self, parent, option, index):
+        comboBox = QComboBox(parent)
+        comboBox.addItems([str(i) for i in range(1, 9)])
+        comboBox.setEditable(True)
+        return comboBox
+
+    def setEditorData(self, editor, index):
+        value = index.model().data(index, Qt.ItemDataRole.EditRole)
+        editor.setCurrentText(str(value))
+
+    def setModelData(self, editor, model, index):
+        model.setData(index, editor.currentText(), Qt.ItemDataRole.EditRole)
+
+
+class DateDelegate(QStyledItemDelegate):
+    def createEditor(self, parent, option, index):
+        editor = QDateEdit(parent)
+        editor.setCalendarPopup(True)
+        editor.setDisplayFormat("yyyy-MM-dd")
+        return editor
+
+    def setEditorData(self, editor, index):
+        date = index.model().data(index, Qt.ItemDataRole.EditRole)
+        editor.setDate(QDate.fromString(date, "yyyy-MM-dd"))
+
+    def setModelData(self, editor, model, index):
+        model.setData(
+            index, editor.date().toString("yyyy-MM-dd"), Qt.ItemDataRole.EditRole
+        )
+
+
+class MyTableModel(QAbstractTableModel):
+    data_changed: bool
+
+    def __init__(self, file_path):
+        super(MyTableModel, self).__init__()
+        self.file_path = file_path
+        self.load_csv()
+
+    def load_csv(self, file_path=None):
+        if file_path is None:
+            file_path = self.file_path
+        if not Path(file_path).is_file():
+            self.setHorizontalHeaderLabels(["Datum", "Ausgabe", "Wert", "Kategorie"])
+            self._data = [[]]
+            self.data_changed = False
+            return
+
+        with open(file_path, newline="", encoding="utf-8") as file:
+            reader = csv.reader(file)
+            headers = next(reader)
+            self._data = [row for row in reader]
+            self.data_changed = False
+
+    def save_csv(self):
+        self.create_backup(self.file_path)
+        with open(MicroAccounting.file_path, "w", newline="", encoding="utf-8") as file:
+            writer = csv.writer(file)
+            headers = ["Datum", "Ausgabe", "Wert", "Kategorie"]  # FIXME
+            writer.writerow(headers)
+            writer.writerows(self._data)
+            self.data_changed = False
+
+    def create_backup(self, file_path: str):
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_file_path = f"{file_path}_{timestamp}.bak"
+        shutil.copyfile(file_path, backup_file_path)
+
+    def rowCount(self, index=None):
+        return len(self._data)
+
+    def columnCount(self, index=None):
+        return len(self._data[0])
+
+    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
+        if role == Qt.ItemDataRole.DisplayRole or role == Qt.ItemDataRole.EditRole:
+            return self._data[index.row()][index.column()]
+
+    def setData(self, index, value, role=Qt.ItemDataRole.EditRole):
+        if role == Qt.ItemDataRole.EditRole:
+            self._data[index.row()][index.column()] = value
+            self.dataChanged.emit(
+                index, index, (Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole)
+            )
+            self.data_changed = True
+            return True
+        return False
+
+    def insertRow(self, date, description, shop, category, value):
+        self._data.append([date, shop, description, value, category])
+        self.layoutChanged.emit()
+        self.data_changed = True
+
+    def flags(self, index):
+        return (
+            Qt.ItemFlag.ItemIsSelectable
+            | Qt.ItemFlag.ItemIsEnabled
+            | Qt.ItemFlag.ItemIsEditable
+        )
+
+    def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
+        if role == Qt.ItemDataRole.DisplayRole:
+            if orientation == Qt.Orientation.Horizontal:
+                return ["Date", "Shop", "Number", "Desc", "Category"][section]
+            if orientation == Qt.Orientation.Vertical:
+                return f"{section + 1}"
+
+    def item(self, row, column):
+        return self._data[row][column]
+
+    def get_row(self, row):
+        return self._data[row]
+
+    def get_used_categories(self):
+        categories = set()
+        for row in range(self.rowCount()):
+            categories.add(self._data[row][DataColumns.CATEGORY])
+        return categories
 
 
 class MplCanvas(FigureCanvasQTAgg):
@@ -63,8 +184,6 @@ class DataColumns(IntEnum):
 
 class MicroAccounting(QMainWindow, Ui_MainWindow):
     file_path = "Buchhaltung.csv"
-    data_changed = False
-    in_atomic_change = False
 
     def __init__(self):
         Ui_MainWindow.__init__(self)
@@ -72,6 +191,17 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.actionSave.triggered.connect(self.save_csv)
         self.actionAdd_Entry.triggered.connect(self.open_entry_dialog)
+
+        self.model = MyTableModel(self.file_path)
+        self.table_widget.setModel(self.model)
+
+        self.delegate = ComboBoxDelegate()
+        self.foo = DateDelegate()
+        self.table_widget.setItemDelegateForColumn(4, self.delegate)
+        self.table_widget.setItemDelegateForColumn(0, self.foo)
+        self.table_widget.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch
+        )
 
         self.cat_chart = MplCanvas(self, title="Ausgaben pro Kategorie")
         self.month_chart = MplCanvas(self, title="Ausgaben pro Monat")
@@ -81,11 +211,11 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
         self.shop_chart_layout.addWidget(self.shop_chart)
 
         self.toolBar.setContextMenuPolicy(Qt.ContextMenuPolicy.PreventContextMenu)
-        self.load_csv(MicroAccounting.file_path)
-        self.table_widget.itemChanged.connect(self.handle_item_changed)
+        self.update_charts()
+        self.model.dataChanged.connect(self.handle_item_changed)
 
     def closeEvent(self, event):
-        if self.data_changed:
+        if self.model.data_changed:
             reply = QMessageBox.question(
                 self,
                 "Ungespeicherte Änderungen",
@@ -105,72 +235,20 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
             event.accept()
 
     def handle_item_changed(self, _item=None):
-        if not self.in_atomic_change:
-            self.data_changed = True
-            self.sort_table_by_date()
-            self.update_charts()
+        self.sort_table_by_date()
+        self.update_charts()
 
     def load_csv(self, file_path: str):
-        if not Path(file_path).is_file():
-            self.table_widget.setColumnCount(len(DataColumns))
-            self.table_widget.setHorizontalHeaderLabels(
-                ["Datum", "Ausgabe", "Wert", "Kategorie"]
-            )
-            return
-
-        with open(file_path, newline="", encoding="utf-8") as file:
-            reader = csv.reader(file)
-            headers = next(reader)
-
-            self.table_widget.setColumnCount(len(headers))
-            self.table_widget.setHorizontalHeaderLabels(headers)
-
-            self.table_widget.setRowCount(0)
-            for row_data in reader:
-                row_number = self.table_widget.rowCount()
-                self.table_widget.insertRow(row_number)
-                for column_number, data in enumerate(row_data):
-                    self.table_widget.setItem(
-                        row_number,
-                        column_number,
-                        QTableWidgetItem(data),
-                    )
-
-        self.table_widget.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.Stretch
-        )
+        self.model.load_csv(file_path)
+        self.model.layoutChanged.emit()
         self.sort_table_by_date()
         self.update_charts()
 
     def save_csv(self):
-        self.create_backup(MicroAccounting.file_path)
-        with open(MicroAccounting.file_path, "w", newline="", encoding="utf-8") as file:
-            writer = csv.writer(file)
-            headers = [
-                self.table_widget.horizontalHeaderItem(i).text()
-                for i in range(self.table_widget.columnCount())
-            ]
-            writer.writerow(headers)
-
-            for row in range(self.table_widget.rowCount()):
-                row_data = [
-                    (
-                        self.table_widget.item(row, column).text()
-                        if self.table_widget.item(row, column)
-                        else ""
-                    )
-                    for column in range(self.table_widget.columnCount())
-                ]
-                writer.writerow(row_data)
-        self.data_changed = False
-
-    def create_backup(self, file_path: str):
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_file_path = f"{file_path}_{timestamp}.bak"
-        shutil.copyfile(file_path, backup_file_path)
+        self.model.save_csv()
 
     def open_entry_dialog(self):
-        dialog = EntryDialog(self, categories=self.get_used_categories())
+        dialog = EntryDialog(self, categories=self.model.get_used_categories())
         if dialog.exec():
             date = dialog.date_edit.date().toString("yyyy-MM-dd")
             shop = dialog.shop_edit.text()
@@ -178,56 +256,31 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
             amount = dialog.amount_edit.value()
             category = dialog.category_edit.currentText()
 
-            row_number = self.table_widget.rowCount()
-            self.in_atomic_change = True
-            self.table_widget.insertRow(row_number)
-            self.table_widget.setItem(
-                row_number, DataColumns.DATE, QTableWidgetItem(date)
+            row_number = self.model.rowCount()
+            self.model.insertRow(
+                date=date,
+                description=description,
+                shop=shop,
+                category=category,
+                value=amount,
             )
-            self.table_widget.setItem(
-                row_number, DataColumns.SHOP, QTableWidgetItem(shop)
-            )
-            self.table_widget.setItem(
-                row_number, DataColumns.DESC, QTableWidgetItem(description)
-            )
-            self.table_widget.setItem(
-                row_number,
-                DataColumns.AMOUNT,
-                QTableWidgetItem(f"{amount:.2f}".replace(".", ",")),
-            )
-            self.table_widget.setItem(
-                row_number, DataColumns.CATEGORY, QTableWidgetItem(category)
-            )
-            self.in_atomic_change = False
             self.handle_item_changed()
 
             self.sort_table_by_date()
-            self.data_changed = True
 
     def sort_table_by_date(self):
-        self.table_widget.sortItems(DataColumns.DATE)
-
-    def get_used_categories(self):
-        categories = set()
-        for row in range(self.table_widget.rowCount()):
-            categories.add(self.table_widget.item(row, DataColumns.CATEGORY).text())
-        return categories
+        # self.model.sortItems(DataColumns.DATE)
+        pass
 
     def update_charts(self):
         category_sums = defaultdict(float)
         by_month = defaultdict(float)
         by_shop = defaultdict(float)
-        for row in range(self.table_widget.rowCount()):
+        for row in range(self.model.rowCount()):
             try:
-                _date = self.table_widget.item(row, DataColumns.DATE).text()
+                _date, shop, _, _amount, category = self.model.get_row(row)
+                amount = float(_amount)
                 month = datetime.strptime(_date, "%Y-%m-%d").strftime("%b %Y")
-                category = self.table_widget.item(row, DataColumns.CATEGORY).text()
-                shop = self.table_widget.item(row, DataColumns.SHOP).text()
-                amount = float(
-                    self.table_widget.item(row, DataColumns.AMOUNT)
-                    .text()
-                    .replace(",", ".")
-                )
                 category_sums[category] += amount
                 by_month[month] += amount
                 if shop != "":
