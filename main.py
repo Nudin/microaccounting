@@ -14,18 +14,29 @@ import numpy as np
 import pandas as pd
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from PyQt6.QtCore import QAbstractTableModel, QDate, QLocale, Qt, QTimer
-from PyQt6.QtGui import QFont, QStandardItemModel
+from PyQt6.QtCore import (QAbstractTableModel, QDate, QLibraryInfo, QLocale,
+                          Qt, QTimer, QTranslator)
 from PyQt6.QtWidgets import (QApplication, QComboBox, QDateEdit, QDialog,
-                             QDialogButtonBox, QDoubleSpinBox, QFormLayout,
-                             QHeaderView, QLineEdit, QMainWindow, QMessageBox,
-                             QStyledItemDelegate, QTableView, QTableWidgetItem)
+                             QDialogButtonBox, QDockWidget, QDoubleSpinBox,
+                             QFormLayout, QHeaderView, QLabel, QLineEdit,
+                             QMainWindow, QMessageBox, QPushButton,
+                             QStyledItemDelegate, QTableView, QTableWidgetItem,
+                             QTextEdit, QToolBar, QVBoxLayout, QWidget)
 
 from main_window import Ui_MainWindow
 
 matplotlib.use("QtAgg")
 
 window = None
+
+
+def install_translator(app: QApplication) -> None:
+    translator = QTranslator(app)
+    qt_translations_path = QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)
+    if translator.load(QLocale.system(), "qtbase", "_", qt_translations_path):
+        app.installTranslator(translator)
+    else:
+        print("Übersetzung konnte nicht geladen werden.")
 
 
 def sigint_handler(*args):
@@ -377,8 +388,10 @@ class EntryDialog(QDialog):
 def main():
     signal.signal(signal.SIGINT, sigint_handler)
     app = QApplication(sys.argv)
+    install_translator(app)
     global window
     window = MicroAccounting()
+    # Installiere den Translator
     window.show()
     timer = QTimer()
     timer.start(500)  # You may change this if you wish.
