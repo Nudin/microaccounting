@@ -48,13 +48,14 @@ def sigint_handler(*args):
 
 
 class ComboBoxDelegate(QStyledItemDelegate):
-    def __init__(self, model):
+    def __init__(self, model, candidate_generator):
         super().__init__()
         self.model = model
+        self.candidate_generator = candidate_generator
 
     def createEditor(self, parent, option, index):
         comboBox = QComboBox(parent)
-        comboBox.addItems(self.model.get_used_categories())
+        comboBox.addItems(self.candidate_generator())
         comboBox.setEditable(True)
         return comboBox
 
@@ -187,6 +188,9 @@ class MyTableModel(QAbstractTableModel):
     def get_used_categories(self):
         return set(self._data["Kategorie"])
 
+    def get_used_shops(self):
+        return set(self._data["Geschäft"])
+
 
 class MplCanvas(FigureCanvasQTAgg):
 
@@ -222,9 +226,11 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
         self.model = MyTableModel(self.file_path)
         self.table_widget.setModel(self.model)
 
-        self.cat_delegate = ComboBoxDelegate(self.model)
+        self.cat_delegate = ComboBoxDelegate(self.model, self.model.get_used_categories)
+        self.shop_delegate = ComboBoxDelegate(self.model, self.model.get_used_shops)
         self.date_delegate = DateDelegate()
         self.table_widget.setItemDelegateForColumn(4, self.cat_delegate)
+        self.table_widget.setItemDelegateForColumn(1, self.shop_delegate)
         self.table_widget.setItemDelegateForColumn(0, self.date_delegate)
         self.table_widget.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.Stretch
@@ -314,10 +320,14 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
         self.model.save_csv()
 
     def open_entry_dialog(self):
-        dialog = EntryDialog(self, categories=self.model.get_used_categories())
+        dialog = EntryDialog(
+            self,
+            categories=self.model.get_used_categories(),
+            shops=self.model.get_used_shops(),
+        )
         if dialog.exec():
             date = dialog.date_edit.date().toString("yyyy-MM-dd")
-            shop = dialog.shop_edit.text()
+            shop = dialog.shop_edit.currentText()
             description = dialog.description_edit.text()
             amount = dialog.amount_edit.value()
             category = dialog.category_edit.currentText()
@@ -364,7 +374,7 @@ class EntryDialog(QDialog):
         ["Lebensmittel", "Gastronomie", "Anschaffungen", "Geschenk", "Anderes"]
     )
 
-    def __init__(self, parent=None, categories=None):
+    def __init__(self, parent=None, categories=None, shops=None):
         super().__init__()
         self.setWindowModality(Qt.WindowModality.WindowModal)
 
@@ -378,7 +388,9 @@ class EntryDialog(QDialog):
         self.date_edit.setDate(QDate.currentDate())
         self.layout.addRow("Datum:", self.date_edit)
 
-        self.shop_edit = QLineEdit(self)
+        self.shop_edit = QComboBox(self)
+        self.shop_edit.setEditable(True)
+        self.shop_edit.addItems(sorted(shops))
         self.layout.addRow("Geschäft:", self.shop_edit)
 
         self.description_edit = QLineEdit(self)
@@ -409,7 +421,7 @@ class EntryDialog(QDialog):
     def accept_if_valid(self):
         amount = self.amount_edit.value()
         description = self.description_edit.text()
-        shop = self.shop_edit.text()
+        shop = self.shop_edit.currentText()
         if amount == 0 and description == "" and shop == "":
             self.reject()
         elif amount != 0 and description:
