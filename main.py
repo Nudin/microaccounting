@@ -85,7 +85,7 @@ class MyTableModel(QAbstractTableModel):
         if file_path is None:
             file_path = self.file_path
         if Path(file_path).is_file():
-            self._data = pd.read_csv(file_path)
+            self._data = pd.read_csv(file_path, keep_default_na=False)
         else:
             self._data = pd.DataFrame(columns=self.FIELDS)
         self.data_changed = False
@@ -94,7 +94,7 @@ class MyTableModel(QAbstractTableModel):
         if file_path is None:
             file_path = self.file_path
         self.create_backup(file_path)
-        self._data.to_csv(file_path)
+        self._data.to_csv(file_path, index=False)
         self.data_changed = False
 
     def create_backup(self, file_path: str):
@@ -158,7 +158,10 @@ class MyTableModel(QAbstractTableModel):
     def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
         if role == Qt.ItemDataRole.DisplayRole:
             if orientation == Qt.Orientation.Horizontal:
-                return self.FIELDS[section]
+                try:
+                    return self.FIELDS[section]
+                except KeyError:
+                    return ""
             if orientation == Qt.Orientation.Vertical:
                 return str(section + 1)
 
