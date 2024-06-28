@@ -369,7 +369,7 @@ class EntryDialog(QDialog):
         self.setWindowModality(Qt.WindowModality.WindowModal)
 
         self.setWindowTitle("Eintrag hinzufügen")
-        self.setGeometry(200, 200, 400, 250)
+        self.setGeometry(200, 200, 500, 250)
 
         self.layout = QFormLayout(self)
 
