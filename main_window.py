@@ -80,6 +80,6 @@ class Ui_MainWindow(object):
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), _translate("MainWindow", "Kategorien"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), _translate("MainWindow", "Pro Monat"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_3), _translate("MainWindow", "Geschäfte"))
-        self.actionSave.setText(_translate("MainWindow", "Save"))
-        self.actionAdd_Entry.setText(_translate("MainWindow", "Add Entry"))
+        self.actionSave.setText(_translate("MainWindow", "Speichern"))
+        self.actionAdd_Entry.setText(_translate("MainWindow", "Eintrag hinzufügen"))
         self.actionAdd_Entry.setToolTip(_translate("MainWindow", "Neuen Eintrag hinzufügen"))

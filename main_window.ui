@@ -89,7 +89,7 @@
      <normaloff>.</normaloff>.</iconset>
    </property>
    <property name="text">
-    <string>Save</string>
+    <string>Speichern</string>
    </property>
    <property name="menuRole">
     <enum>QAction::NoRole</enum>
@@ -101,7 +101,7 @@
      <normaloff>.</normaloff>.</iconset>
    </property>
    <property name="text">
-    <string>Add Entry</string>
+    <string>Eintrag hinzufügen</string>
    </property>
    <property name="toolTip">
     <string>Neuen Eintrag hinzufügen</string>
