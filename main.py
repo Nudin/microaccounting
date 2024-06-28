@@ -309,6 +309,7 @@ class EntryDialog(QDialog):
 
     def __init__(self, parent=None, categories=None):
         super().__init__()
+        self.setWindowModality(Qt.WindowModality.WindowModal)
 
         self.setWindowTitle("Eintrag hinzufügen")
         self.setGeometry(200, 200, 400, 250)
