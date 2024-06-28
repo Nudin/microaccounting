@@ -228,6 +228,11 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
         self.toolBar.setContextMenuPolicy(Qt.ContextMenuPolicy.PreventContextMenu)
         self.update_charts()
         self.model.dataChanged.connect(self.handle_item_changed)
+        self.resizeDocks(
+            [self.dockWidget],
+            [self.frameGeometry().width() // 3],
+            Qt.Orientation.Horizontal,
+        )
 
     def closeEvent(self, event):
         if self.model.data_changed:
