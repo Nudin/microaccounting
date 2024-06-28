@@ -216,7 +216,54 @@ class MplCanvas(FigureCanvasQTAgg):
         self.draw()
 
 
-class MicroAccounting(QMainWindow, Ui_MainWindow):
+class ResizeAbleFontWindow:
+    def __init__(self):
+        self.font_size = 14  # Default font size
+        self.update_font()
+
+    def register_shortcuts(self):
+        # Shortcuts for increasing and decreasing font size
+        increase_font_shortcut = QShortcut(
+            QKeySequence(Qt.Modifier.CTRL | Qt.Key.Key_Plus), self
+        )
+        decrease_font_shortcut = QShortcut(
+            QKeySequence(Qt.Modifier.CTRL | Qt.Key.Key_Minus), self
+        )
+
+        # Connect shortcuts to methods
+        increase_font_shortcut.activated.connect(self.increase_font_size)
+        decrease_font_shortcut.activated.connect(self.decrease_font_size)
+
+    def increase_font_size(self):
+        self.font_size += 1
+        self.update_font()
+
+    def decrease_font_size(self):
+        self.font_size -= 1
+        self.update_font()
+
+    def update_font(self):
+        font = QFont()
+        font.setPointSize(self.font_size)
+        if isinstance(self, QMainWindow):
+            centralWidget = self.centralWidget()
+        elif isinstance(self, QDialog):
+            centralWidget = self
+        else:
+            return
+        self.setFontForAllWidgets(centralWidget, font)
+        self.setFontForAllWidgets(self.findChild(QToolBar), font)
+        self.setFontForAllWidgets(self.findChild(QDockWidget), font)
+
+    def setFontForAllWidgets(self, widget, font):
+        if widget is None:
+            return
+        widget.setFont(font)
+        for child in widget.findChildren(QWidget):
+            child.setFont(font)
+
+
+class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
     data_dir = (
         Path(os.getenv("XDG_DATA_HOME", Path.home() / ".local" / "share"))
         / "microaccounting"
@@ -226,6 +273,7 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
     def __init__(self):
         Ui_MainWindow.__init__(self)
         QMainWindow.__init__(self)
+        ResizeAbleFontWindow.__init__(self)
         self.setupUi(self)
         self.actionSave.triggered.connect(self.save_csv)
         self.actionAdd_Entry.triggered.connect(self.open_entry_dialog)
@@ -258,42 +306,14 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
             [self.frameGeometry().width() // 3],
             Qt.Orientation.Horizontal,
         )
-        self.font_size = 14  # Default font size
-        # Shortcuts for increasing and decreasing font size
-        increase_font_shortcut = QShortcut(
-            QKeySequence(Qt.Modifier.CTRL | Qt.Key.Key_Plus), self
-        )
-        decrease_font_shortcut = QShortcut(
-            QKeySequence(Qt.Modifier.CTRL | Qt.Key.Key_Minus), self
-        )
-
-        # Connect shortcuts to methods
-        increase_font_shortcut.activated.connect(self.increase_font_size)
-        decrease_font_shortcut.activated.connect(self.decrease_font_size)
-
-        self.update_font()
-
-    def increase_font_size(self):
-        self.font_size += 1
-        # self.table_widget.setRowHeight(self.table_widget.rowHeight() * 1.1)
-        self.update_font()
-
-    def decrease_font_size(self):
-        self.font_size -= 1
-        self.update_font()
+        self.register_shortcuts()
 
     def update_font(self):
-        font = QFont()
-        font.setPointSize(self.font_size)
-        self.setFontForAllWidgets(self.centralWidget(), font)
-        self.setFontForAllWidgets(self.findChild(QToolBar), font)
-        self.setFontForAllWidgets(self.findChild(QDockWidget), font)
-        self.table_widget.verticalHeader().setDefaultSectionSize(self.font_size + 4)
-
-    def setFontForAllWidgets(self, widget, font):
-        widget.setFont(font)
-        for child in widget.findChildren(QWidget):
-            child.setFont(font)
+        super().update_font()
+        try:
+            self.table_widget.verticalHeader().setDefaultSectionSize(self.font_size + 4)
+        except AttributeError:
+            pass
 
     def closeEvent(self, event):
         if self.model.data_changed:
@@ -376,7 +396,7 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
             print("Error", e)
 
 
-class EntryDialog(QDialog):
+class EntryDialog(QDialog, ResizeAbleFontWindow):
     DEFAULT_CATEGORIES: ClassVar[Set[str]] = set(
         ["Lebensmittel", "Gastronomie", "Anschaffungen", "Geschenk", "Anderes"]
     )
@@ -424,6 +444,7 @@ class EntryDialog(QDialog):
         self.button_box.accepted.connect(self.accept_if_valid)
         self.button_box.rejected.connect(self.reject)
         self.layout.addRow(self.button_box)
+        self.register_shortcuts()
 
     def accept_if_valid(self):
         amount = self.amount_edit.value()
