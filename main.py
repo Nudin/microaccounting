@@ -454,11 +454,17 @@ class EntryDialog(QDialog, ResizeAbleFontWindow):
             self.reject()
         elif amount != 0 and description:
             self.accept()
-        else:
+        elif amount == 0:
             QMessageBox.warning(
                 self,
                 "Ungültiger Eintrag",
-                "Der Betrag darf nicht Null sein und die Beschreibung darf nicht leer sein.",
+                "Der Betrag darf nicht Null sein.",
+            )
+        elif description == "":
+            QMessageBox.warning(
+                self,
+                "Ungültiger Eintrag",
+                "Die Beschreibung darf nicht leer sein.",
             )
 
 
