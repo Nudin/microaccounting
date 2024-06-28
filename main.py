@@ -202,10 +202,10 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
         self.model = MyTableModel(self.file_path)
         self.table_widget.setModel(self.model)
 
-        self.delegate = ComboBoxDelegate(self.model)
-        self.foo = DateDelegate()
-        self.table_widget.setItemDelegateForColumn(4, self.delegate)
-        self.table_widget.setItemDelegateForColumn(0, self.foo)
+        self.cat_delegate = ComboBoxDelegate(self.model)
+        self.date_delegate = DateDelegate()
+        self.table_widget.setItemDelegateForColumn(4, self.cat_delegate)
+        self.table_widget.setItemDelegateForColumn(0, self.date_delegate)
         self.table_widget.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.Stretch
         )
