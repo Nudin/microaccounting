@@ -58,7 +58,7 @@ class DateDelegate(QStyledItemDelegate):
     def createEditor(self, parent, option, index):
         editor = QDateEdit(parent)
         editor.setCalendarPopup(True)
-        editor.setDisplayFormat("yyyy-MM-dd")
+        editor.setDisplayFormat("dd.MM.yyyy")
         return editor
 
     def setEditorData(self, editor, index):
@@ -69,6 +69,10 @@ class DateDelegate(QStyledItemDelegate):
         model.setData(
             index, editor.date().toString("yyyy-MM-dd"), Qt.ItemDataRole.EditRole
         )
+
+    def displayText(self, value, locale):
+        date = QDate.fromString(value, "yyyy-MM-dd")
+        return date.toString("dd.MM.yyyy")
 
 
 class MyTableModel(QAbstractTableModel):
