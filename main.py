@@ -361,7 +361,10 @@ class EntryDialog(QDialog):
     def accept_if_valid(self):
         amount = self.amount_edit.value()
         description = self.description_edit.text()
-        if amount != 0 and description:
+        shop = self.shop_edit.text()
+        if amount == 0 and description == "" and shop == "":
+            self.reject()
+        elif amount != 0 and description:
             self.accept()
         else:
             QMessageBox.warning(
