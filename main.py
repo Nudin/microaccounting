@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import csv
+import os
 import shutil
 import signal
 import sys
@@ -104,6 +105,7 @@ class MyTableModel(QAbstractTableModel):
         if Path(file_path).is_file():
             self._data = pd.read_csv(file_path, keep_default_na=False)
         else:
+            self.file_path.parent.mkdir(parents=True, exist_ok=True)
             self._data = pd.DataFrame(columns=self.FIELDS)
         self.data_changed = False
 
@@ -117,7 +119,8 @@ class MyTableModel(QAbstractTableModel):
     def create_backup(self, file_path: str):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_file_path = f"{file_path}_{timestamp}.bak"
-        shutil.copyfile(file_path, backup_file_path)
+        if Path(file_path).is_file():
+            shutil.copyfile(file_path, backup_file_path)
 
     def rowCount(self, index=None):
         return len(self._data)
@@ -214,7 +217,11 @@ class MplCanvas(FigureCanvasQTAgg):
 
 
 class MicroAccounting(QMainWindow, Ui_MainWindow):
-    file_path = "Buchhaltung.csv"
+    data_dir = (
+        Path(os.getenv("XDG_DATA_HOME", Path.home() / ".local" / "share"))
+        / "microaccounting"
+    )
+    file_path = data_dir / "Buchhaltung.csv"
 
     def __init__(self):
         Ui_MainWindow.__init__(self)
