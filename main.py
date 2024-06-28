@@ -16,6 +16,7 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from PyQt6.QtCore import (QAbstractTableModel, QDate, QLibraryInfo, QLocale,
                           Qt, QTimer, QTranslator)
+from PyQt6.QtGui import QFont, QKeySequence, QShortcut, QStandardItemModel
 from PyQt6.QtWidgets import (QApplication, QComboBox, QDateEdit, QDialog,
                              QDialogButtonBox, QDockWidget, QDoubleSpinBox,
                              QFormLayout, QHeaderView, QLabel, QLineEdit,
@@ -244,6 +245,42 @@ class MicroAccounting(QMainWindow, Ui_MainWindow):
             [self.frameGeometry().width() // 3],
             Qt.Orientation.Horizontal,
         )
+        self.font_size = 14  # Default font size
+        # Shortcuts for increasing and decreasing font size
+        increase_font_shortcut = QShortcut(
+            QKeySequence(Qt.Modifier.CTRL | Qt.Key.Key_Plus), self
+        )
+        decrease_font_shortcut = QShortcut(
+            QKeySequence(Qt.Modifier.CTRL | Qt.Key.Key_Minus), self
+        )
+
+        # Connect shortcuts to methods
+        increase_font_shortcut.activated.connect(self.increase_font_size)
+        decrease_font_shortcut.activated.connect(self.decrease_font_size)
+
+        self.update_font()
+
+    def increase_font_size(self):
+        self.font_size += 1
+        # self.table_widget.setRowHeight(self.table_widget.rowHeight() * 1.1)
+        self.update_font()
+
+    def decrease_font_size(self):
+        self.font_size -= 1
+        self.update_font()
+
+    def update_font(self):
+        font = QFont()
+        font.setPointSize(self.font_size)
+        self.setFontForAllWidgets(self.centralWidget(), font)
+        self.setFontForAllWidgets(self.findChild(QToolBar), font)
+        self.setFontForAllWidgets(self.findChild(QDockWidget), font)
+        self.table_widget.verticalHeader().setDefaultSectionSize(self.font_size + 4)
+
+    def setFontForAllWidgets(self, widget, font):
+        widget.setFont(font)
+        for child in widget.findChildren(QWidget):
+            child.setFont(font)
 
     def closeEvent(self, event):
         if self.model.data_changed:
