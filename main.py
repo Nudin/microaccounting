@@ -183,7 +183,8 @@ class MplCanvas(FigureCanvasQTAgg):
 
     def bar(self, *kargs, **kwargs):
         self.axes.cla()
-        self.axes.bar(*kargs, **kwargs)
+        bar = self.axes.bar(*kargs, **kwargs)
+        self.axes.bar_label(bar, fmt="{:,.2f}\u2009€")
         self.draw()
 
     def pie(self, *kargs, **kwargs):
