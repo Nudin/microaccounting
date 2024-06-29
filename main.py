@@ -351,10 +351,9 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
             Qt.Orientation.Horizontal,
         )
         self.register_shortcuts()
-        debug_shortcut = QShortcut("Ctrl+Shift+K", self)
 
-        # Connect shortcuts to methods
-        debug_shortcut.activated.connect(self.debug)
+        # Set up debug shortcut
+        QShortcut("Ctrl+Alt+Shift+K", self).activated.connect(self.debug)
 
     def debug(self):
         import IPython

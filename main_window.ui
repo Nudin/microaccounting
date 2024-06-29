@@ -91,6 +91,12 @@
    <property name="text">
     <string>Speichern</string>
    </property>
+   <property name="toolTip">
+    <string>Speichern (Str+S)</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
+   </property>
    <property name="menuRole">
     <enum>QAction::NoRole</enum>
    </property>
@@ -104,7 +110,10 @@
     <string>Eintrag hinzufügen</string>
    </property>
    <property name="toolTip">
-    <string>Neuen Eintrag hinzufügen</string>
+    <string>Neuen Eintrag hinzufügen (Str+N)</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+N</string>
    </property>
    <property name="menuRole">
     <enum>QAction::NoRole</enum>
