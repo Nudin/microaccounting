@@ -299,7 +299,11 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
             QHeaderView.ResizeMode.Interactive
         )
         self.table_widget.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.Stretch
+            self.model.FIELDS.index("Ausgabe"), QHeaderView.ResizeMode.Stretch
+        )
+        self.table_widget.setColumnWidth(
+            self.model.FIELDS.index("Kategorie"),
+            self.table_widget.columnWidth(self.model.FIELDS.index("Kategorie")) + 50,
         )
 
         self.cat_chart = MplCanvas(self, title="Ausgaben pro Kategorie")
