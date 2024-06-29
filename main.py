@@ -248,8 +248,8 @@ class MplCanvas(FigureCanvasQTAgg):
 
 
 class ResizeAbleFontWindow:
-    def __init__(self):
-        self.font_size = 14  # Default font size
+    def __init__(self, font_size=14):
+        self.font_size = font_size  # Default font size
         self.update_font()
 
     def register_shortcuts(self):
@@ -403,6 +403,7 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
             self,
             categories=self.model.get_used_categories(),
             shops=self.model.get_used_shops(),
+            font_size=self.font_size,
         )
         if dialog.exec():
             date = dialog.date_edit.date().toString("yyyy-MM-dd")
@@ -453,8 +454,9 @@ class EntryDialog(QDialog, ResizeAbleFontWindow):
         ["Lebensmittel", "Gastronomie", "Anschaffungen", "Geschenk", "Anderes"]
     )
 
-    def __init__(self, parent=None, categories=None, shops=None):
-        super().__init__()
+    def __init__(self, parent=None, categories=None, shops=None, font_size=None):
+        QDialog.__init__(self)
+        ResizeAbleFontWindow.__init__(self, font_size)
         self.setWindowModality(Qt.WindowModality.WindowModal)
 
         self.setWindowTitle("Eintrag hinzufügen")
