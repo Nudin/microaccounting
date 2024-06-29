@@ -132,8 +132,11 @@ class MyTableModel(QAbstractTableModel):
         data = self._data.iloc[index.row()][self.FIELDS[index.column()]]
         if role == Qt.ItemDataRole.DisplayRole:
             if not isinstance(data, str):
-                data = self.locale.toString(data, "f", 2)
+                data = self.locale.toString(data, "f", 2) + "\u2009€"
             return data
+        elif role == Qt.ItemDataRole.TextAlignmentRole:
+            if index.column() == self.FIELDS.index("Wert"):
+                return Qt.AlignmentFlag.AlignRight
         if role == Qt.ItemDataRole.EditRole:
             if not isinstance(data, str):
                 data = float(data)
