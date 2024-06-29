@@ -91,7 +91,7 @@ class DateDelegate(QStyledItemDelegate):
 
 class MyTableModel(QAbstractTableModel):
     data_changed: bool
-    FIELDS = ["Datum", "Geschäft", "Ausgabe", "Wert", "Kategorie"]
+    FIELDS = ["Datum", "Kategorie", "Geschäft", "Ausgabe", "Wert"]
 
     def __init__(self, file_path):
         super(MyTableModel, self).__init__()
@@ -129,20 +129,19 @@ class MyTableModel(QAbstractTableModel):
         return len(self._data.columns)
 
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
+        data = self._data.iloc[index.row()][self.FIELDS[index.column()]]
         if role == Qt.ItemDataRole.DisplayRole:
-            data = self._data.iloc[index.row(), index.column()]
             if not isinstance(data, str):
                 data = self.locale.toString(data, "f", 2)
             return data
         if role == Qt.ItemDataRole.EditRole:
-            data = self._data.iloc[index.row(), index.column()]
             if not isinstance(data, str):
                 data = float(data)
             return data
 
     def setData(self, index, value, role=Qt.ItemDataRole.EditRole):
         if role == Qt.ItemDataRole.EditRole:
-            self._data.iloc[index.row(), index.column()] = value
+            self._data.loc[index.row(), self.FIELDS[index.column()]] = value
             self.dataChanged.emit(
                 index, index, (Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole)
             )
@@ -284,9 +283,18 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
         self.cat_delegate = ComboBoxDelegate(self.model, self.model.get_used_categories)
         self.shop_delegate = ComboBoxDelegate(self.model, self.model.get_used_shops)
         self.date_delegate = DateDelegate()
-        self.table_widget.setItemDelegateForColumn(4, self.cat_delegate)
-        self.table_widget.setItemDelegateForColumn(1, self.shop_delegate)
-        self.table_widget.setItemDelegateForColumn(0, self.date_delegate)
+        self.table_widget.setItemDelegateForColumn(
+            self.model.FIELDS.index("Kategorie"), self.cat_delegate
+        )
+        self.table_widget.setItemDelegateForColumn(
+            self.model.FIELDS.index("Geschäft"), self.shop_delegate
+        )
+        self.table_widget.setItemDelegateForColumn(
+            self.model.FIELDS.index("Datum"), self.date_delegate
+        )
+        self.table_widget.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Interactive
+        )
         self.table_widget.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.Stretch
         )
