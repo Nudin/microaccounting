@@ -430,7 +430,7 @@ class EntryDialog(QDialog, ResizeAbleFontWindow):
         self.setWindowModality(Qt.WindowModality.WindowModal)
 
         self.setWindowTitle("Eintrag hinzufügen")
-        self.setGeometry(200, 200, 500, 250)
+        self.resize(500, 250)
 
         self.layout = QFormLayout(self)
 
