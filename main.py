@@ -6,7 +6,6 @@ import signal
 import sys
 from collections import defaultdict
 from datetime import datetime
-from enum import IntEnum
 from pathlib import Path
 from typing import ClassVar, Set
 
@@ -15,6 +14,7 @@ import numpy as np
 import pandas as pd
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
+from numpy.lib.shape_base import column_stack
 from PyQt6.QtCore import (QAbstractTableModel, QDate, QLibraryInfo, QLocale,
                           Qt, QTimer, QTranslator)
 from PyQt6.QtGui import QFont, QKeySequence, QShortcut, QStandardItemModel
@@ -30,6 +30,36 @@ from main_window import Ui_MainWindow
 matplotlib.use("QtAgg")
 
 window = None
+
+
+class ColumnsMeta(type):
+    def __getitem__(cls, x):
+        return cls.displayOrder[x]
+
+
+class Columns(metaclass=ColumnsMeta):
+    Date = "Datum"
+    Shop = "Geschäft"
+    Category = "Kategorie"
+    Value = "Wert"
+    Description = "Ausgabe"
+
+    displayOrder = [Date, Category, Shop, Description, Value]
+    _displayTexts = {
+        Date: "Datum",
+        Shop: "Geschäft",
+        Category: "Kategorie",
+        Value: "Betrag",
+        Description: "Beschreibung",
+    }
+
+    @classmethod
+    def displayText(cls, column):
+        return cls._displayTexts[column]
+
+    @classmethod
+    def index(cls, column):
+        return cls.displayOrder.index(column)
 
 
 def install_translator(app: QApplication) -> None:
@@ -91,7 +121,6 @@ class DateDelegate(QStyledItemDelegate):
 
 class MyTableModel(QAbstractTableModel):
     data_changed: bool
-    FIELDS = ["Datum", "Kategorie", "Geschäft", "Ausgabe", "Wert"]
 
     def __init__(self, file_path):
         super(MyTableModel, self).__init__()
@@ -106,7 +135,7 @@ class MyTableModel(QAbstractTableModel):
             self._data = pd.read_csv(file_path, keep_default_na=False)
         else:
             self.file_path.parent.mkdir(parents=True, exist_ok=True)
-            self._data = pd.DataFrame(columns=self.FIELDS)
+            self._data = pd.DataFrame(columns=Columns.displayOrder)
         self.data_changed = False
 
     def save_csv(self, file_path=None):
@@ -129,13 +158,13 @@ class MyTableModel(QAbstractTableModel):
         return len(self._data.columns)
 
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
-        data = self._data.iloc[index.row()][self.FIELDS[index.column()]]
+        data = self._data.iloc[index.row()][Columns[index.column()]]
         if role == Qt.ItemDataRole.DisplayRole:
             if not isinstance(data, str):
                 data = self.locale.toString(data, "f", 2) + "\u2009€"
             return data
         elif role == Qt.ItemDataRole.TextAlignmentRole:
-            if index.column() == self.FIELDS.index("Wert"):
+            if index.column() == Columns.index(Columns.Value):
                 return Qt.AlignmentFlag.AlignRight
         if role == Qt.ItemDataRole.EditRole:
             if not isinstance(data, str):
@@ -144,7 +173,7 @@ class MyTableModel(QAbstractTableModel):
 
     def setData(self, index, value, role=Qt.ItemDataRole.EditRole):
         if role == Qt.ItemDataRole.EditRole:
-            self._data.loc[index.row(), self.FIELDS[index.column()]] = value
+            self._data.loc[index.row(), Columns[index.column()]] = value
             self.dataChanged.emit(
                 index, index, (Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole)
             )
@@ -156,17 +185,17 @@ class MyTableModel(QAbstractTableModel):
         new = pd.DataFrame(
             [
                 {
-                    "Datum": date,
-                    "Geschäft": shop,
-                    "Ausgabe": description,
-                    "Wert": value,
-                    "Kategorie": category,
+                    Columns.Date: date,
+                    Columns.Shop: shop,
+                    Columns.Description: description,
+                    Columns.Value: value,
+                    Columns.Category: category,
                 }
             ]
         )
         self._data = pd.concat(
             [self._data, new], ignore_index=True, copy=False
-        ).sort_values(by="Datum")
+        ).sort_values(by=Columns.Date)
         self.layoutChanged.emit()
         self.data_changed = True
 
@@ -181,7 +210,7 @@ class MyTableModel(QAbstractTableModel):
         if role == Qt.ItemDataRole.DisplayRole:
             if orientation == Qt.Orientation.Horizontal:
                 try:
-                    return self.FIELDS[section]
+                    return Columns.displayText(Columns[section])
                 except KeyError:
                     return ""
             if orientation == Qt.Orientation.Vertical:
@@ -191,10 +220,10 @@ class MyTableModel(QAbstractTableModel):
         return self._data.iloc[row]
 
     def get_used_categories(self):
-        return set(self._data["Kategorie"])
+        return set(self._data[Columns.Category])
 
     def get_used_shops(self):
-        return set(self._data["Geschäft"])
+        return set(self._data[Columns.Shop])
 
 
 class MplCanvas(FigureCanvasQTAgg):
@@ -287,23 +316,23 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
         self.shop_delegate = ComboBoxDelegate(self.model, self.model.get_used_shops)
         self.date_delegate = DateDelegate()
         self.table_widget.setItemDelegateForColumn(
-            self.model.FIELDS.index("Kategorie"), self.cat_delegate
+            Columns.index(Columns.Category), self.cat_delegate
         )
         self.table_widget.setItemDelegateForColumn(
-            self.model.FIELDS.index("Geschäft"), self.shop_delegate
+            Columns.index(Columns.Shop), self.shop_delegate
         )
         self.table_widget.setItemDelegateForColumn(
-            self.model.FIELDS.index("Datum"), self.date_delegate
+            Columns.index(Columns.Date), self.date_delegate
         )
         self.table_widget.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.Interactive
         )
         self.table_widget.horizontalHeader().setSectionResizeMode(
-            self.model.FIELDS.index("Ausgabe"), QHeaderView.ResizeMode.Stretch
+            Columns.index(Columns.Description), QHeaderView.ResizeMode.Stretch
         )
         self.table_widget.setColumnWidth(
-            self.model.FIELDS.index("Kategorie"),
-            self.table_widget.columnWidth(self.model.FIELDS.index("Kategorie")) + 50,
+            Columns.index(Columns.Category),
+            self.table_widget.columnWidth(Columns.index(Columns.Category)) + 50,
         )
 
         self.cat_chart = MplCanvas(self, title="Ausgaben pro Kategorie")
@@ -437,20 +466,7 @@ class EntryDialog(QDialog, ResizeAbleFontWindow):
         self.date_edit = QDateEdit(self)
         self.date_edit.setCalendarPopup(True)
         self.date_edit.setDate(QDate.currentDate())
-        self.layout.addRow("Datum:", self.date_edit)
-
-        self.shop_edit = QComboBox(self)
-        self.shop_edit.setEditable(True)
-        self.shop_edit.addItems(sorted(shops))
-        self.layout.addRow("Geschäft:", self.shop_edit)
-
-        self.description_edit = QLineEdit(self)
-        self.layout.addRow("Beschreibung:", self.description_edit)
-
-        self.amount_edit = QDoubleSpinBox(self)
-        self.amount_edit.setSuffix(" €")
-        self.amount_edit.setMaximum(9999999.99)
-        self.layout.addRow("Betrag:", self.amount_edit)
+        self.layout.addRow(f"{Columns.displayText(Columns.Date)}:", self.date_edit)
 
         self.category_edit = QComboBox(self)
         self.category_edit.setEditable(True)
@@ -459,7 +475,24 @@ class EntryDialog(QDialog, ResizeAbleFontWindow):
         else:
             all_categories = self.DEFAULT_CATEGORIES
         self.category_edit.addItems(sorted(all_categories))
-        self.layout.addRow("Kategorie:", self.category_edit)
+        self.layout.addRow(
+            f"{Columns.displayText(Columns.Category)}:", self.category_edit
+        )
+
+        self.shop_edit = QComboBox(self)
+        self.shop_edit.setEditable(True)
+        self.shop_edit.addItems(sorted(shops))
+        self.layout.addRow(f"{Columns.displayText(Columns.Shop)}:", self.shop_edit)
+
+        self.description_edit = QLineEdit(self)
+        self.layout.addRow(
+            f"{Columns.displayText(Columns.Description)}:", self.description_edit
+        )
+
+        self.amount_edit = QDoubleSpinBox(self)
+        self.amount_edit.setSuffix(" €")
+        self.amount_edit.setMaximum(9999999.99)
+        self.layout.addRow(f"{Columns.displayText(Columns.Value)}:", self.amount_edit)
 
         self.button_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
