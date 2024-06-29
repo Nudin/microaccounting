@@ -322,6 +322,15 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
             Qt.Orientation.Horizontal,
         )
         self.register_shortcuts()
+        debug_shortcut = QShortcut("Ctrl+Shift+K", self)
+
+        # Connect shortcuts to methods
+        debug_shortcut.activated.connect(self.debug)
+
+    def debug(self):
+        import IPython
+
+        IPython.embed()
 
     def update_font(self):
         super().update_font()
