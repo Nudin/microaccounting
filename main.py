@@ -12,8 +12,8 @@ import matplotlib
 import pandas as pd
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from PyQt6.QtCore import (QAbstractTableModel, QDate, QLibraryInfo, QLocale,
-                          Qt, QTimer, QTranslator)
+from PyQt6.QtCore import (QAbstractTableModel, QByteArray, QDate, QLibraryInfo,
+                          QLocale, QSettings, Qt, QTimer, QTranslator)
 from PyQt6.QtGui import QFont, QIcon, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (QApplication, QComboBox, QDateEdit, QDialog,
                              QDialogButtonBox, QDockWidget, QDoubleSpinBox,
@@ -375,9 +375,25 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
             Qt.Orientation.Horizontal,
         )
         self.register_shortcuts()
+        self.restore_geometry()
 
         # Set up debug shortcut
         QShortcut("Ctrl+Alt+Shift+K", self).activated.connect(self.debug)
+
+    def save_geometry(self):
+        settings = QSettings("microaccounting")
+        settings.setValue("geometry", self.saveGeometry())
+        settings.setValue("font_size", self.font_size)
+
+    def restore_geometry(self):
+        settings = QSettings("microaccounting")
+        geometry = settings.value("geometry")
+        font_size = settings.value("font_size")
+        if geometry:
+            self.restoreGeometry(QByteArray(geometry))
+        if font_size:
+            self.font_size = int(font_size)
+            self.update_font()
 
     def resize_columns(self):
         self.table_widget.horizontalHeader().setSectionResizeMode(
@@ -424,12 +440,15 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
             )
             if reply == QMessageBox.StandardButton.Yes:
                 self.save_csv()
+                self.save_geometry()
                 event.accept()
             elif reply == QMessageBox.StandardButton.No:
+                self.save_geometry()
                 event.accept()
             else:
                 event.ignore()
         else:
+            self.save_geometry()
             event.accept()
 
     def handle_item_changed(self, _item=None):
