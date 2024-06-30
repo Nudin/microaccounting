@@ -361,10 +361,13 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
         self.table_widget.horizontalHeader().setSectionResizeMode(
             Columns.index(Columns.Description), QHeaderView.ResizeMode.Stretch
         )
-        self.table_widget.setColumnWidth(
-            Columns.index(Columns.Category),
-            self.table_widget.columnWidth(Columns.index(Columns.Category)) + 50,
-        )
+        # Make sure all Columns have enough white space
+        for col in range(4):
+            if col != Columns.index(Columns.Description):
+                self.table_widget.setColumnWidth(
+                    col,
+                    self.table_widget.columnWidth(col) + 30,
+                )
 
         self.cat_chart = MplCanvas(self, title="Ausgaben pro Kategorie")
         self.month_chart = MplCanvas(self, title="Ausgaben pro Monat")
