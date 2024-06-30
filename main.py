@@ -14,7 +14,7 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from PyQt6.QtCore import (QAbstractTableModel, QDate, QLibraryInfo, QLocale,
                           Qt, QTimer, QTranslator)
-from PyQt6.QtGui import QFont, QKeySequence, QShortcut
+from PyQt6.QtGui import QFont, QIcon, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (QApplication, QComboBox, QDateEdit, QDialog,
                              QDialogButtonBox, QDockWidget, QDoubleSpinBox,
                              QFormLayout, QHeaderView, QLineEdit, QMainWindow,
@@ -574,6 +574,7 @@ class EntryDialog(QDialog, ResizeAbleFontWindow):
 def main():
     signal.signal(signal.SIGINT, sigint_handler)
     app = QApplication(sys.argv)
+    app.setWindowIcon(QIcon("Bookkeeping_icon.jpeg"))
     install_translator(app)
     global window
     window = MicroAccounting()
