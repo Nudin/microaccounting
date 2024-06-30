@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import csv
 import os
 import shutil
 import signal
@@ -10,20 +9,17 @@ from pathlib import Path
 from typing import ClassVar, Set
 
 import matplotlib
-import numpy as np
 import pandas as pd
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from numpy.lib.shape_base import column_stack
 from PyQt6.QtCore import (QAbstractTableModel, QDate, QLibraryInfo, QLocale,
                           Qt, QTimer, QTranslator)
-from PyQt6.QtGui import QFont, QKeySequence, QShortcut, QStandardItemModel
+from PyQt6.QtGui import QFont, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (QApplication, QComboBox, QDateEdit, QDialog,
                              QDialogButtonBox, QDockWidget, QDoubleSpinBox,
-                             QFormLayout, QHeaderView, QLabel, QLineEdit,
-                             QMainWindow, QMessageBox, QPushButton,
-                             QStyledItemDelegate, QTableView, QTableWidgetItem,
-                             QTextEdit, QToolBar, QVBoxLayout, QWidget)
+                             QFormLayout, QHeaderView, QLineEdit, QMainWindow,
+                             QMessageBox, QStyledItemDelegate, QToolBar,
+                             QWidget)
 
 from main_window import Ui_MainWindow
 
