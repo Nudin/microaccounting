@@ -157,7 +157,9 @@ class MyTableModel(QAbstractTableModel):
         if file_path is None:
             file_path = self.file_path
         if Path(file_path).is_file():
-            self._data = pd.read_csv(file_path, keep_default_na=False)
+            self._data = pd.read_csv(file_path, keep_default_na=False).sort_values(
+                by=Columns.Date
+            )
         else:
             self.file_path.parent.mkdir(parents=True, exist_ok=True)
             self._data = pd.DataFrame(columns=Columns.displayOrder)
