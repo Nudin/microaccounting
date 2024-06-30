@@ -519,7 +519,7 @@ class EntryDialog(QDialog, ResizeAbleFontWindow):
     )
 
     def __init__(self, parent=None, categories=None, shops=None, font_size=None):
-        QDialog.__init__(self)
+        QDialog.__init__(self, parent)
         ResizeAbleFontWindow.__init__(self, font_size)
         self.setWindowModality(Qt.WindowModality.WindowModal)
 
