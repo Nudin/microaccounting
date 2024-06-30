@@ -555,7 +555,7 @@ class EntryDialog(QDialog, ResizeAbleFontWindow):
         )
 
         self.amount_edit = QDoubleSpinBox(self)
-        self.amount_edit.setSuffix(" €")
+        self.amount_edit.setSuffix("\u2009€")
         self.amount_edit.setMaximum(9999999.99)
         self.layout.addRow(f"{Columns.displayText(Columns.Value)}:", self.amount_edit)
 
