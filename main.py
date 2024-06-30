@@ -36,6 +36,9 @@ class ColumnsMeta(type):
     def __getitem__(cls, x):
         return cls.displayOrder[x]
 
+    def __len__(cls):
+        return len(cls.displayOrder)
+
 
 class Columns(metaclass=ColumnsMeta):
     Date = "Datum"
@@ -200,6 +203,9 @@ class MyTableModel(QAbstractTableModel):
 
     def setData(self, index, value, role=Qt.ItemDataRole.EditRole):
         if role == Qt.ItemDataRole.EditRole:
+            old_val = self._data.loc[index.row(), Columns[index.column()]]
+            if old_val == value:
+                return True
             self._data.loc[index.row(), Columns[index.column()]] = value
             self.dataChanged.emit(
                 index, index, (Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole)
@@ -355,19 +361,7 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
         self.table_widget.setItemDelegateForColumn(
             Columns.index(Columns.Value), self.value_delegate
         )
-        self.table_widget.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.Interactive
-        )
-        self.table_widget.horizontalHeader().setSectionResizeMode(
-            Columns.index(Columns.Description), QHeaderView.ResizeMode.Stretch
-        )
-        # Make sure all Columns have enough white space
-        for col in range(4):
-            if col != Columns.index(Columns.Description):
-                self.table_widget.setColumnWidth(
-                    col,
-                    self.table_widget.columnWidth(col) + 30,
-                )
+        self.resize_columns()
 
         self.cat_chart = MplCanvas(self, title="Ausgaben pro Kategorie")
         self.month_chart = MplCanvas(self, title="Ausgaben pro Monat")
@@ -389,6 +383,26 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
         # Set up debug shortcut
         QShortcut("Ctrl+Alt+Shift+K", self).activated.connect(self.debug)
 
+    def resize_columns(self):
+        self.table_widget.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.ResizeToContents
+        )
+        content_sizes = {}
+        for col in range(len(Columns)):
+            content_sizes[col] = self.table_widget.columnWidth(col)
+
+        self.table_widget.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Interactive
+        )
+        self.table_widget.horizontalHeader().setSectionResizeMode(
+            Columns.index(Columns.Description), QHeaderView.ResizeMode.Stretch
+        )
+        # Make sure all Columns have enough white space
+        for col in range(len(Columns)):
+            current_size = self.table_widget.columnWidth(col)
+            new = max(current_size, content_sizes[col] + 30)
+            self.table_widget.setColumnWidth(col, new)
+
     def debug(self):
         import IPython
 
@@ -398,6 +412,7 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
         super().update_font()
         try:
             self.table_widget.verticalHeader().setDefaultSectionSize(self.font_size + 4)
+            self.resize_columns()
         except AttributeError:
             pass
 
