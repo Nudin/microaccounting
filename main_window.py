@@ -17,7 +17,7 @@ class Ui_MainWindow(object):
         self.centralwidget.setObjectName("centralwidget")
         self.horizontalLayout = QtWidgets.QHBoxLayout(self.centralwidget)
         self.horizontalLayout.setObjectName("horizontalLayout")
-        self.table_widget = QtWidgets.QTableView(parent=self.centralwidget)
+        self.table_widget = EnhancedQTableView(parent=self.centralwidget)
         self.table_widget.setObjectName("table_widget")
         self.horizontalLayout.addWidget(self.table_widget)
         MainWindow.setCentralWidget(self.centralwidget)
@@ -86,3 +86,4 @@ class Ui_MainWindow(object):
         self.actionAdd_Entry.setText(_translate("MainWindow", "Eintrag hinzufügen"))
         self.actionAdd_Entry.setToolTip(_translate("MainWindow", "Neuen Eintrag hinzufügen (Str+N)"))
         self.actionAdd_Entry.setShortcut(_translate("MainWindow", "Ctrl+N"))
+from enhancedqtableview import EnhancedQTableView
