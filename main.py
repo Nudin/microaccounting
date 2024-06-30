@@ -119,6 +119,31 @@ class DateDelegate(QStyledItemDelegate):
         return date.toString("dd.MM.yyyy")
 
 
+class CurrencyDelegate(QStyledItemDelegate):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+    def createEditor(self, parent, option, index):
+        editor = QDoubleSpinBox(parent)
+        editor.setSuffix("\u2009€")
+        editor.setDecimals(2)
+        editor.setMinimum(0.00)
+        editor.setMaximum(1000000.00)
+        editor.setAlignment(Qt.AlignmentFlag.AlignRight)
+        return editor
+
+    def setEditorData(self, editor, index):
+        value = index.model().data(index, Qt.ItemDataRole.EditRole)
+        editor.setValue(float(value))
+
+    def setModelData(self, editor, model, index):
+        value = editor.value()
+        model.setData(index, value, Qt.ItemDataRole.EditRole)
+
+    def updateEditorGeometry(self, editor, option, index):
+        editor.setGeometry(option.rect)
+
+
 class MyTableModel(QAbstractTableModel):
     data_changed: bool
 
@@ -315,6 +340,7 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
         self.cat_delegate = ComboBoxDelegate(self.model, self.model.get_used_categories)
         self.shop_delegate = ComboBoxDelegate(self.model, self.model.get_used_shops)
         self.date_delegate = DateDelegate()
+        self.value_delegate = CurrencyDelegate()
         self.table_widget.setItemDelegateForColumn(
             Columns.index(Columns.Category), self.cat_delegate
         )
@@ -323,6 +349,9 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
         )
         self.table_widget.setItemDelegateForColumn(
             Columns.index(Columns.Date), self.date_delegate
+        )
+        self.table_widget.setItemDelegateForColumn(
+            Columns.index(Columns.Value), self.value_delegate
         )
         self.table_widget.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.Interactive
