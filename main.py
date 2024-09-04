@@ -485,10 +485,10 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
         )
         if dialog.exec():
             date = dialog.date_edit.date().toString("yyyy-MM-dd")
-            shop = dialog.shop_edit.currentText()
-            description = dialog.description_edit.text()
+            shop = dialog.shop_edit.currentText().strip()
+            description = dialog.description_edit.text().strip()
             amount = dialog.amount_edit.value()
-            category = dialog.category_edit.currentText()
+            category = dialog.category_edit.currentText().strip()
 
             row_number = self.model.rowCount()
             self.model.insertRow(
