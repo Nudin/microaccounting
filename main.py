@@ -257,7 +257,7 @@ class MyTableModel(QAbstractTableModel):
 
 class MplCanvas(FigureCanvasQTAgg):
 
-    def __init__(self, parent=None, width=6, height=4, dpi=150, title=None):
+    def __init__(self, parent=None, width=6, height=4, dpi=130, title=None):
         fig = Figure(figsize=(width, height), dpi=dpi)
         self.axes = fig.add_subplot(111)
         super().__init__(fig)
