@@ -270,9 +270,23 @@ class MplCanvas(FigureCanvasQTAgg):
         self.axes.bar_label(bar, fmt="{:,.2f}\u2009€")
         self.draw()
 
-    def pie(self, *kargs, **kwargs):
+    def pie(self, data, *kargs, labels=None, **kwargs):
+        if len(data) > 6:
+            # Sort categories and sums together by sums in ascending order
+            sorted_zip = sorted(zip(data, labels))
+
+            # Separate the sums and categories again after sorting
+            sorted_data, sorted_labels = zip(*sorted_zip)
+
+            # Combine the smallest categories into "other"
+            other_sum = sum(sorted_data[:-4])
+            other_label = "Other"
+
+            # Keep the largest 4 categories plus the "other" category
+            data = list(sorted_data[-4:]) + [other_sum]
+            labels = list(sorted_labels[-4:]) + [other_label]
         self.axes.cla()
-        self.axes.pie(*kargs, **kwargs)
+        self.axes.pie(data, *kargs, labels=labels, **kwargs)
         self.draw()
 
 
