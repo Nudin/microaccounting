@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import ClassVar, Set
 
 import matplotlib
+import numpy as np
 import pandas as pd
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
@@ -261,6 +262,8 @@ class MplCanvas(FigureCanvasQTAgg):
         fig = Figure(figsize=(width, height), dpi=dpi)
         self.axes = fig.add_subplot(111)
         super().__init__(fig)
+        self.figure.set_layout_engine("tight")
+        fig.set_layout_engine("tight")
         if title:
             fig.suptitle(title)
 
@@ -271,6 +274,21 @@ class MplCanvas(FigureCanvasQTAgg):
         self.draw()
 
     def pie(self, data, *kargs, labels=None, **kwargs):
+        def fix_labels(mylabels, tooclose=0.1, sepfactor=2):
+            vecs = np.zeros((len(mylabels), len(mylabels), 2))
+            dists = np.zeros((len(mylabels), len(mylabels)))
+            for i in range(0, len(mylabels) - 1):
+                for j in range(i + 1, len(mylabels)):
+                    a = np.array(mylabels[i].get_position())
+                    b = np.array(mylabels[j].get_position())
+                    dists[i, j] = np.linalg.norm(a - b)
+                    vecs[i, j, :] = a - b
+                    if dists[i, j] < tooclose:
+                        mylabels[i].set_x(a[0] + sepfactor * vecs[i, j, 0])
+                        mylabels[i].set_y(a[1] + sepfactor * vecs[i, j, 1])
+                        mylabels[j].set_x(b[0] - sepfactor * vecs[i, j, 0])
+                        mylabels[j].set_y(b[1] - sepfactor * vecs[i, j, 1])
+
         if len(data) > 6:
             # Sort categories and sums together by sums in ascending order
             sorted_zip = sorted(zip(data, labels))
@@ -286,7 +304,11 @@ class MplCanvas(FigureCanvasQTAgg):
             data = list(sorted_data[-4:]) + [other_sum]
             labels = list(sorted_labels[-4:]) + [other_label]
         self.axes.cla()
-        self.axes.pie(data, *kargs, labels=labels, **kwargs)
+        wedges, labels, autopct = self.axes.pie(
+            data, *kargs, labels=labels, labeldistance=1.1, **kwargs
+        )
+        fix_labels(labels, sepfactor=2)
+
         self.draw()
 
 
