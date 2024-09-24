@@ -280,7 +280,7 @@ class MplCanvas(FigureCanvasQTAgg):
 
             # Combine the smallest categories into "other"
             other_sum = sum(sorted_data[:-4])
-            other_label = "Other"
+            other_label = "Andere"
 
             # Keep the largest 4 categories plus the "other" category
             data = list(sorted_data[-4:]) + [other_sum]
