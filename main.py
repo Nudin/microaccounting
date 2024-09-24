@@ -157,7 +157,7 @@ class MyTableModel(QAbstractTableModel):
             file_path = self.file_path
         if Path(file_path).is_file():
             self._data = pd.read_csv(file_path, keep_default_na=False).sort_values(
-                by=Columns.Date
+                by=Columns.Date, ignore_index=True
             )
         else:
             self.file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -224,7 +224,7 @@ class MyTableModel(QAbstractTableModel):
         )
         self._data = pd.concat(
             [self._data, new], ignore_index=True, copy=False
-        ).sort_values(by=Columns.Date)
+        ).sort_values(by=Columns.Date, ignore_index=True)
         self.layoutChanged.emit()
         self.data_changed = True
 
