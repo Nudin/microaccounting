@@ -506,7 +506,7 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
         by_shop = defaultdict(float)
         for row in range(self.model.rowCount()):
             try:
-                _date, shop, _, _amount, category = self.model.get_row(row)
+                _date, category, shop, _, _amount = self.model.get_row(row)
                 amount = float(_amount)
                 month = datetime.strptime(_date, "%Y-%m-%d").strftime("%b %Y")
                 category_sums[category] += amount
