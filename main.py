@@ -499,6 +499,25 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
         self.model.save_csv()
 
     def open_entry_dialog(self):
+        def filter_text(text: str):
+            prefixes = [
+                "Für die",
+                "Für das",
+                "Für den",
+                "Fürs",
+                "Für",
+                "Bei dem Geschäft",
+                "Bei dem Laden",
+                "Bei dem",
+                "Bei der",
+                "Beim ",
+            ]
+            text = text.strip().strip(".,:")
+            for prefix in prefixes:
+                if text.startswith(prefix):
+                    return text[len(prefix) :].strip()
+            return text
+
         dialog = EntryDialog(
             self,
             categories=self.model.get_used_categories(),
@@ -506,15 +525,19 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
             font_size=self.font_size,
         )
         if dialog.exec():
-            date = dialog.date_edit.date().toString("yyyy-MM-dd")
-            shop = dialog.shop_edit.currentText().strip()
-            description = dialog.description_edit.text().strip()
+            date = dialog.date_edit.date()
+            # If date is before 2000, assume typo, move 100 years
+            if date.year() < 2000:
+                date.replace(year=date.year + 100)
+            date_str = date.toString("yyyy-MM-dd")
             amount = dialog.amount_edit.value()
-            category = dialog.category_edit.currentText().strip()
+            shop = filter_text(dialog.shop_edit.currentText())
+            description = filter_text(dialog.description_edit.text())
+            category = filter_text(dialog.category_edit.currentText())
 
             row_number = self.model.rowCount()
             self.model.insertRow(
-                date=date,
+                date=date_str,
                 description=description,
                 shop=shop,
                 category=category,
