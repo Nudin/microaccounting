@@ -508,7 +508,7 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
             try:
                 _date, category, shop, _, _amount = self.model.get_row(row)
                 amount = float(_amount)
-                month = datetime.strptime(_date, "%Y-%m-%d").strftime("%b %Y")
+                month = datetime.strptime(_date, "%Y-%m-%d").strftime("%b\n%Y")
                 category_sums[category] += amount
                 by_month[month] += amount
                 if shop != "":
