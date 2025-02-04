@@ -120,12 +120,13 @@ class DateDelegate(QStyledItemDelegate):
 
 
 class CurrencyDelegate(QStyledItemDelegate):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, currency="€"):
         super().__init__(parent)
+        self.currency = currency
 
     def createEditor(self, parent, option, index):
         editor = QDoubleSpinBox(parent)
-        editor.setSuffix("\u2009€")
+        editor.setSuffix("\u2009" + self.currency)
         editor.setDecimals(2)
         editor.setMinimum(0.00)
         editor.setMaximum(1000000.00)
@@ -147,9 +148,10 @@ class CurrencyDelegate(QStyledItemDelegate):
 class MyTableModel(QAbstractTableModel):
     data_changed: bool
 
-    def __init__(self, file_path):
+    def __init__(self, file_path, currency="€"):
         super(MyTableModel, self).__init__()
         self.file_path = file_path
+        self.currency = currency
         self.locale = QLocale()
         self.load_csv()
 
@@ -188,7 +190,7 @@ class MyTableModel(QAbstractTableModel):
         data = self._data.iloc[index.row()][Columns[index.column()]]
         if role == Qt.ItemDataRole.DisplayRole:
             if not isinstance(data, str):
-                data = self.locale.toString(data, "f", 2) + "\u2009€"
+                data = self.locale.toString(data, "f", 2) + "\u2009" + self.currency
             return data
         elif role == Qt.ItemDataRole.TextAlignmentRole:
             if index.column() == Columns.index(Columns.Value):
@@ -267,10 +269,10 @@ class MplCanvas(FigureCanvasQTAgg):
         if title:
             fig.suptitle(title)
 
-    def bar(self, *kargs, **kwargs):
+    def bar(self, *kargs, currency="€", **kwargs):
         self.axes.cla()
         bar = self.axes.bar(*kargs, **kwargs)
-        self.axes.bar_label(bar, fmt="{:,.2f}\u2009€")
+        self.axes.bar_label(bar, fmt="{:,.2f}\u2009" + currency)
         self.draw()
 
     def pie(self, data, *kargs, labels=None, **kwargs):
@@ -385,13 +387,21 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
         if owner:
             self.setWindowTitle(f"Buchhaltung von {owner}")
 
-        self.model = MyTableModel(self.file_path)
+        self.currency = self.settings.value("currency")
+        if self.currency is None:
+            self.currency, ok = QInputDialog.getText(
+                self, "Währung", "Bitte geben Sie das Währungssymbol ein:"
+            )
+            if ok:
+                self.settings.setValue("currency", self.currency)
+
+        self.model = MyTableModel(self.file_path, currency=self.currency)
         self.table_widget.setModel(self.model)
 
         self.cat_delegate = ComboBoxDelegate(self.model, self.model.get_used_categories)
         self.shop_delegate = ComboBoxDelegate(self.model, self.model.get_used_shops)
         self.date_delegate = DateDelegate()
-        self.value_delegate = CurrencyDelegate()
+        self.value_delegate = CurrencyDelegate(currency=self.currency)
         self.table_widget.setItemDelegateForColumn(
             Columns.index(Columns.Category), self.cat_delegate
         )
@@ -532,6 +542,7 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
             categories=self.model.get_used_categories(),
             shops=self.model.get_used_shops(),
             font_size=self.font_size,
+            currency=self.currency,
         )
         if dialog.exec():
             date = dialog.date_edit.date()
@@ -576,7 +587,9 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
             shop_sums = list(by_shop.values())
             self.cat_chart.pie(sums, labels=categories, autopct="%i%%", startangle=140)
             self.shop_chart.pie(shop_sums, labels=shops, autopct="%i%%", startangle=140)
-            self.month_chart.bar(by_month.keys(), by_month.values())
+            self.month_chart.bar(
+                by_month.keys(), by_month.values(), currency=self.currency
+            )
         except Exception as e:
             print("Error", e)
 
@@ -586,7 +599,9 @@ class EntryDialog(QDialog, ResizeAbleFontWindow):
         ["Lebensmittel", "Gastronomie", "Anschaffungen", "Geschenk", "Anderes"]
     )
 
-    def __init__(self, parent=None, categories=None, shops=None, font_size=None):
+    def __init__(
+        self, parent=None, categories=None, shops=None, font_size=None, currency="€"
+    ):
         QDialog.__init__(self, parent)
         ResizeAbleFontWindow.__init__(self, font_size)
         self.setWindowModality(Qt.WindowModality.WindowModal)
@@ -623,7 +638,7 @@ class EntryDialog(QDialog, ResizeAbleFontWindow):
         )
 
         self.amount_edit = QDoubleSpinBox(self)
-        self.amount_edit.setSuffix("\u2009€")
+        self.amount_edit.setSuffix("\u2009" + currency)
         self.amount_edit.setMaximum(9999999.99)
         self.layout.addRow(f"{Columns.displayText(Columns.Value)}:", self.amount_edit)
 
