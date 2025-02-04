@@ -18,9 +18,9 @@ from PyQt6.QtCore import (QAbstractTableModel, QByteArray, QDate, QLibraryInfo,
 from PyQt6.QtGui import QFont, QIcon, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (QApplication, QComboBox, QDateEdit, QDialog,
                              QDialogButtonBox, QDockWidget, QDoubleSpinBox,
-                             QFormLayout, QHeaderView, QLineEdit, QMainWindow,
-                             QMessageBox, QStyledItemDelegate, QToolBar,
-                             QWidget)
+                             QFormLayout, QHeaderView, QInputDialog, QLineEdit,
+                             QMainWindow, QMessageBox, QStyledItemDelegate,
+                             QToolBar, QWidget)
 
 from main_window import Ui_MainWindow
 
@@ -365,6 +365,7 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
         / "microaccounting"
     )
     file_path = data_dir / "Buchhaltung.csv"
+    settings = QSettings("microaccounting")
 
     def __init__(self):
         Ui_MainWindow.__init__(self)
@@ -373,6 +374,16 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
         self.setupUi(self)
         self.actionSave.triggered.connect(self.save_csv)
         self.actionAdd_Entry.triggered.connect(self.open_entry_dialog)
+
+        owner = self.settings.value("owner")
+        if owner is None:
+            owner, ok = QInputDialog.getText(
+                self, "Besitzername", "Bitte geben Sie Ihren Namen ein:"
+            )
+            if ok:
+                self.settings.setValue("owner", owner)
+        if owner:
+            self.setWindowTitle(f"Buchhaltung von {owner}")
 
         self.model = MyTableModel(self.file_path)
         self.table_widget.setModel(self.model)
@@ -417,14 +428,12 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
         QShortcut("Ctrl+Alt+Shift+K", self).activated.connect(self.debug)
 
     def save_geometry(self):
-        settings = QSettings("microaccounting")
-        settings.setValue("geometry", self.saveGeometry())
-        settings.setValue("font_size", self.font_size)
+        self.settings.setValue("geometry", self.saveGeometry())
+        self.settings.setValue("font_size", self.font_size)
 
     def restore_geometry(self):
-        settings = QSettings("microaccounting")
-        geometry = settings.value("geometry")
-        font_size = settings.value("font_size")
+        geometry = self.settings.value("geometry")
+        font_size = self.settings.value("font_size")
         if geometry:
             self.restoreGeometry(QByteArray(geometry))
         if font_size:

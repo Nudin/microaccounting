@@ -75,7 +75,7 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "Buchhaltung von Hakan Obut"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "Buchhaltung"))
         self.toolBar.setWindowTitle(_translate("MainWindow", "toolBar"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), _translate("MainWindow", "Kategorien"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_2), _translate("MainWindow", "Pro Monat"))
