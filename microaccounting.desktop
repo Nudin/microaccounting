@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=MicroAccounting
+GenericName=Accounting
+GenericName[de]=Buchhaltung
+Comment=A lightweight accounting tool
+Comment[de]=Ein leichtgewichtiges Buchhaltungstool
+Exec=/opt/microaccounting/main.py
+Icon=/usr/share/icons/hicolor/512x512/apps/microaccounting.png
+Terminal=false
+Type=Application
+Categories=Office;Finance;
