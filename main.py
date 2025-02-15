@@ -623,6 +623,10 @@ class EntryDialog(QDialog, ResizeAbleFontWindow):
         else:
             all_categories = self.DEFAULT_CATEGORIES
         self.category_edit.addItems(sorted(all_categories))
+        self.category_edit.lineEdit().setMaxLength(30)
+        self.category_edit.lineEdit().textEdited.connect(
+            self.validate_input("Kategorie")
+        )
         self.layout.addRow(
             f"{Columns.displayText(Columns.Category)}:", self.category_edit
         )
@@ -630,6 +634,8 @@ class EntryDialog(QDialog, ResizeAbleFontWindow):
         self.shop_edit = QComboBox(self)
         self.shop_edit.setEditable(True)
         self.shop_edit.addItems(sorted(shops))
+        self.shop_edit.lineEdit().setMaxLength(30)
+        self.shop_edit.lineEdit().textEdited.connect(self.validate_input("Geschäft"))
         self.layout.addRow(f"{Columns.displayText(Columns.Shop)}:", self.shop_edit)
 
         self.description_edit = QLineEdit(self)
@@ -650,6 +656,17 @@ class EntryDialog(QDialog, ResizeAbleFontWindow):
         self.button_box.rejected.connect(self.reject)
         self.layout.addRow(self.button_box)
         self.register_shortcuts()
+
+    def validate_input(self, title: str):
+        def handler(text: str):
+            if len(text) >= 30:
+                QMessageBox.warning(
+                    self,
+                    "Zu lang",
+                    f"Angabe zu {title} is zu lang. Bitte kürzen.",
+                )
+
+        return handler
 
     def accept_if_valid(self):
         amount = self.amount_edit.value()
