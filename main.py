@@ -305,9 +305,25 @@ class MplCanvas(FigureCanvasQTAgg):
             # Keep the largest 4 categories plus the "other" category
             data = list(sorted_data[-4:]) + [other_sum]
             labels = list(sorted_labels[-4:]) + [other_label]
+        # replace labels of segments smaller than 3% by empty string
+        for i, d in enumerate(data):
+            if d < 0.03 * sum(data):
+                labels[i] = ""
         self.axes.cla()
+
+        def labelfilter(pct):
+            """Filter labels for small segments"""
+            if pct < 4:
+                return ""
+            return f"{pct:.0f}%"
+
         wedges, labels, autopct = self.axes.pie(
-            data, *kargs, labels=labels, labeldistance=1.1, **kwargs
+            data,
+            *kargs,
+            labels=labels,
+            labeldistance=1.1,
+            autopct=labelfilter,
+            **kwargs,
         )
         fix_labels(labels, sepfactor=2)
 
@@ -585,8 +601,8 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
             sums = list(category_sums.values())
             shops = list(by_shop.keys())
             shop_sums = list(by_shop.values())
-            self.cat_chart.pie(sums, labels=categories, autopct="%i%%", startangle=140)
-            self.shop_chart.pie(shop_sums, labels=shops, autopct="%i%%", startangle=140)
+            self.cat_chart.pie(sums, labels=categories, startangle=140)
+            self.shop_chart.pie(shop_sums, labels=shops, startangle=140)
             self.month_chart.bar(
                 by_month.keys(), by_month.values(), currency=self.currency
             )
