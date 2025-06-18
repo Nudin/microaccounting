@@ -258,7 +258,45 @@ class MyTableModel(QAbstractTableModel):
         return set(self._data[Columns.Shop])
 
 
-class MplCanvas(FigureCanvasQTAgg):
+class BarCanvas(FigureCanvasQTAgg):
+
+    def __init__(
+        self, parent=None, width=6, height=4, dpi=130, title=None, currency="€"
+    ):
+        fig = Figure(figsize=(width, height), dpi=dpi)
+        self.axes = fig.add_subplot(111)
+        super().__init__(fig)
+        self.figure.set_layout_engine("tight")
+        fig.set_layout_engine("tight")
+        if title:
+            fig.suptitle(title)
+        self.data = []
+        self.labels = []
+        self.currency = currency
+
+    def set_data(self, labels, values):
+        self.labels = labels
+        self.data = values
+
+    def draw_bars(self, labels, values):
+        self.axes.cla()
+        bars = self.axes.bar(labels, values)
+        self.axes.bar_label(bars, fmt=f"{{:,.2f}}\u2009{self.currency}")
+        self.draw()
+
+    def update_responsive(self):
+        if not self.data:
+            return
+        width = self.width()
+        max_bars = max(3, width // 50)
+        self.draw_bars(self.labels[-max_bars:], self.data[-max_bars:])
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.update_responsive()
+
+
+class PieCanvas(FigureCanvasQTAgg):
 
     def __init__(self, parent=None, width=6, height=4, dpi=130, title=None):
         fig = Figure(figsize=(width, height), dpi=dpi)
@@ -268,12 +306,6 @@ class MplCanvas(FigureCanvasQTAgg):
         fig.set_layout_engine("tight")
         if title:
             fig.suptitle(title)
-
-    def bar(self, *kargs, currency="€", **kwargs):
-        self.axes.cla()
-        bar = self.axes.bar(*kargs, **kwargs)
-        self.axes.bar_label(bar, fmt="{:,.2f}\u2009" + currency)
-        self.draw()
 
     def pie(self, data, *kargs, labels=None, **kwargs):
         def fix_labels(mylabels, tooclose=0.1, sepfactor=2):
@@ -432,9 +464,11 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
         )
         self.resize_columns()
 
-        self.cat_chart = MplCanvas(self, title="Ausgaben pro Kategorie")
-        self.month_chart = MplCanvas(self, title="Ausgaben pro Monat")
-        self.shop_chart = MplCanvas(self, title="Ausgaben pro Geschäft")
+        self.cat_chart = PieCanvas(self, title="Ausgaben pro Kategorie")
+        self.month_chart = BarCanvas(
+            self, title="Ausgaben pro Monat", currency=self.currency
+        )
+        self.shop_chart = PieCanvas(self, title="Ausgaben pro Geschäft")
         self.category_chart_layout.addWidget(self.cat_chart)
         self.monthly_chart_layout.addWidget(self.month_chart)
         self.shop_chart_layout.addWidget(self.shop_chart)
@@ -603,9 +637,7 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
             shop_sums = list(by_shop.values())
             self.cat_chart.pie(sums, labels=categories, startangle=140)
             self.shop_chart.pie(shop_sums, labels=shops, startangle=140)
-            self.month_chart.bar(
-                by_month.keys(), by_month.values(), currency=self.currency
-            )
+            self.month_chart.set_data(list(by_month.keys()), list(by_month.values()))
         except Exception as e:
             print("Error", e)
 
