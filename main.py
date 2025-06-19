@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import os
+import re
 import shutil
 import signal
 import sys
@@ -14,13 +15,16 @@ import pandas as pd
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from PyQt6.QtCore import (QAbstractTableModel, QByteArray, QDate, QLibraryInfo,
-                          QLocale, QSettings, Qt, QTimer, QTranslator)
+                          QLocale, QSettings, Qt, QTimer, QTranslator,
+                          pyqtSignal)
 from PyQt6.QtGui import QFont, QIcon, QKeySequence, QShortcut
-from PyQt6.QtWidgets import (QApplication, QComboBox, QDateEdit, QDialog,
-                             QDialogButtonBox, QDockWidget, QDoubleSpinBox,
-                             QFormLayout, QHeaderView, QInputDialog, QLineEdit,
-                             QMainWindow, QMessageBox, QStyledItemDelegate,
-                             QToolBar, QWidget)
+from PyQt6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDateEdit,
+                             QDialog, QDialogButtonBox, QDockWidget,
+                             QDoubleSpinBox, QFormLayout, QHBoxLayout,
+                             QHeaderView, QInputDialog, QLabel, QLineEdit,
+                             QMainWindow, QMessageBox, QPushButton,
+                             QStyledItemDelegate, QToolBar, QVBoxLayout,
+                             QWidget)
 
 from main_window import Ui_MainWindow
 
@@ -257,6 +261,40 @@ class MyTableModel(QAbstractTableModel):
     def get_used_shops(self):
         return set(self._data[Columns.Shop])
 
+    def search(self, pattern: str, regex: bool = False) -> list[tuple[int, int]]:
+        matches = []
+        for row_idx in range(self._data.shape[0]):
+            for col_idx in range(self._data.shape[1]):
+                cell = str(self._data.iat[row_idx, col_idx])
+                if regex:
+                    if re.search(pattern, cell):
+                        matches.append((row_idx, col_idx))
+                else:
+                    if pattern in cell:
+                        matches.append((row_idx, col_idx))
+        return matches
+
+    def replace(self, pattern: str, replacement: str, regex: bool = False) -> int:
+        matches = self.search(pattern, regex)
+        for row, col in matches:
+            cell = str(self._data.iat[row, col])
+            new_value = (
+                re.sub(pattern, replacement, cell)
+                if regex
+                else cell.replace(pattern, replacement)
+            )
+            self._data.iat[row, col] = new_value
+        if matches:
+            top_left = self.index(
+                min(r for r, _ in matches), min(c for _, c in matches)
+            )
+            bottom_right = self.index(
+                max(r for r, _ in matches), max(c for _, c in matches)
+            )
+            self.dataChanged.emit(top_left, bottom_right, [Qt.ItemDataRole.DisplayRole])
+            self.data_changed = True
+        return len(matches)
+
 
 class BarCanvas(FigureCanvasQTAgg):
 
@@ -486,6 +524,22 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
 
         # Set up debug shortcut
         QShortcut("Ctrl+Alt+Shift+K", self).activated.connect(self.debug)
+        QShortcut("Ctrl+Shift+E", self).activated.connect(
+            self.open_search_replace_dialog
+        )
+
+    def open_search_replace_dialog(self) -> None:
+        self.search_replace_dialog = SearchAndReplaceDialog(
+            self, font_size=self.font_size
+        )
+        self.search_replace_dialog.replaceRequested.connect(self.handle_replace)
+        self.search_replace_dialog.show()
+
+    def handle_replace(self, pattern: str, replacement: str, regex: bool) -> None:
+        count = self.model.replace(pattern, replacement, regex)
+        self.search_replace_dialog.result_label.setText(
+            f"Replaced {count} occurrence(s)."
+        )
 
     def save_geometry(self):
         self.settings.setValue("geometry", self.saveGeometry())
@@ -640,6 +694,50 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
             self.month_chart.set_data(list(by_month.keys()), list(by_month.values()))
         except Exception as e:
             print("Error", e)
+
+
+class SearchAndReplaceDialog(QDialog, ResizeAbleFontWindow):
+    replaceRequested = pyqtSignal(str, str, bool)
+
+    def __init__(self, parent=None, font_size=None) -> None:
+        super().__init__(parent)
+        ResizeAbleFontWindow.__init__(self, font_size)
+        self.setWindowTitle("Search and Replace")
+
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search for...")
+
+        self.replace_input = QLineEdit()
+        self.replace_input.setPlaceholderText("Replace with...")
+
+        self.regex_checkbox = QCheckBox("Use Regular Expression")
+
+        self.result_label = QLabel()
+
+        self.replace_button = QPushButton("Replace All")
+        self.close_button = QPushButton("Close")
+
+        self.replace_button.clicked.connect(self.on_replace)
+        self.close_button.clicked.connect(self.close)
+
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("Search:"))
+        layout.addWidget(self.search_input)
+        layout.addWidget(QLabel("Replace with:"))
+        layout.addWidget(self.replace_input)
+        layout.addWidget(self.regex_checkbox)
+        layout.addWidget(self.replace_button)
+        layout.addWidget(self.close_button)
+        layout.addWidget(self.result_label)
+
+        self.setLayout(layout)
+        self.register_shortcuts()
+
+    def on_replace(self) -> None:
+        pattern = self.search_input.text()
+        replacement = self.replace_input.text()
+        regex = self.regex_checkbox.isChecked()
+        self.replaceRequested.emit(pattern, replacement, regex)
 
 
 class EntryDialog(QDialog, ResizeAbleFontWindow):
