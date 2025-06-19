@@ -265,6 +265,9 @@ class MyTableModel(QAbstractTableModel):
         matches = []
         for row_idx in range(self._data.shape[0]):
             for col_idx in range(self._data.shape[1]):
+                # Skip the first and last columns (Date and Value)
+                if col_idx in [0, 4]:
+                    continue
                 cell = str(self._data.iat[row_idx, col_idx])
                 if regex:
                     if re.search(pattern, cell):
