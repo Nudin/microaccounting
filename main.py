@@ -705,28 +705,28 @@ class SearchAndReplaceDialog(QDialog, ResizeAbleFontWindow):
     def __init__(self, parent=None, font_size=None) -> None:
         super().__init__(parent)
         ResizeAbleFontWindow.__init__(self, font_size)
-        self.setWindowTitle("Search and Replace")
+        self.setWindowTitle("Suchen und Ersetzen")
 
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search for...")
+        self.search_input.setPlaceholderText("Suche nach...")
 
         self.replace_input = QLineEdit()
-        self.replace_input.setPlaceholderText("Replace with...")
+        self.replace_input.setPlaceholderText("Ersetzen durch...")
 
-        self.regex_checkbox = QCheckBox("Use Regular Expression")
+        self.regex_checkbox = QCheckBox("Regulärer Ausdruck")
 
         self.result_label = QLabel()
 
-        self.replace_button = QPushButton("Replace All")
-        self.close_button = QPushButton("Close")
+        self.replace_button = QPushButton("Ersetzen")
+        self.close_button = QPushButton("Schließen")
 
         self.replace_button.clicked.connect(self.on_replace)
         self.close_button.clicked.connect(self.close)
 
         layout = QVBoxLayout()
-        layout.addWidget(QLabel("Search:"))
+        layout.addWidget(QLabel("Suchen:"))
         layout.addWidget(self.search_input)
-        layout.addWidget(QLabel("Replace with:"))
+        layout.addWidget(QLabel("Ersetzen:"))
         layout.addWidget(self.replace_input)
         layout.addWidget(self.regex_checkbox)
         layout.addWidget(self.replace_button)
