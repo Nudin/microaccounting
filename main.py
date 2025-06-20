@@ -318,6 +318,7 @@ class BarCanvas(FigureCanvasQTAgg):
     def set_data(self, labels, values):
         self.labels = labels
         self.data = values
+        self.update_responsive()
 
     def draw_bars(self, labels, values):
         self.axes.cla()
