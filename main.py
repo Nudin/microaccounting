@@ -465,6 +465,7 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
         self.setupUi(self)
         self.actionSave.triggered.connect(self.save_csv)
         self.actionAdd_Entry.triggered.connect(self.open_entry_dialog)
+        self.actionSaveImages.triggered.connect(self.save_figures)
 
         owner = self.settings.value("owner")
         if owner is None:
@@ -697,6 +698,14 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
             self.month_chart.set_data(list(by_month.keys()), list(by_month.values()))
         except Exception as e:
             print("Error", e)
+
+    def save_figures(self):
+        """Saves the figures to home directory."""
+        home = Path.home()
+        self.cat_chart.figure.savefig(home / "categories.png")
+        self.shop_chart.figure.savefig(home / "shops.png")
+        self.month_chart.figure.savefig(home / "monthly.png")
+        print("Figures saved to", home)
 
 
 class SearchAndReplaceDialog(QDialog, ResizeAbleFontWindow):
