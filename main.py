@@ -15,8 +15,8 @@ import pandas as pd
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from PyQt6.QtCore import (QAbstractTableModel, QByteArray, QDate, QLibraryInfo,
-                          QLocale, QSettings, Qt, QTimer, QTranslator,
-                          pyqtSignal)
+                          QLocale, QSettings, QSharedMemory, Qt, QTimer,
+                          QTranslator, pyqtSignal)
 from PyQt6.QtGui import QFont, QIcon, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDateEdit,
                              QDialog, QDialogButtonBox, QDockWidget,
@@ -852,6 +852,10 @@ class EntryDialog(QDialog, ResizeAbleFontWindow):
 def main():
     signal.signal(signal.SIGINT, sigint_handler)
     app = QApplication(sys.argv)
+    shm = QSharedMemory("microaccounting")
+    if not shm.create(1):
+        print("App läuft bereits.")
+        sys.exit(0)
     app.setWindowIcon(QIcon("Bookkeeping_icon.jpeg"))
     install_translator(app)
     global window
