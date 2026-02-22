@@ -689,22 +689,7 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
 
     def open_entry_dialog(self):
         def filter_text(text: str):
-            prefixes = [
-                "Für die",
-                "Für das",
-                "Für den",
-                "Fürs",
-                "Für",
-                "Bei dem Geschäft",
-                "Bei dem Laden",
-                "Bei dem",
-                "Bei der",
-                "Beim ",
-            ]
-            text = text.strip().strip(".,:")
-            for prefix in prefixes:
-                if text.startswith(prefix):
-                    return text[len(prefix) :].strip()
+            text = text.strip().strip(".")
             return text
 
         dialog = EntryDialog(
