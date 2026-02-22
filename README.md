@@ -10,6 +10,8 @@ Features:
 - View and edit expenses in a table
 - Drop down menus for categories and shops
 - Change font sizes by pressing	Ctrl+ and Ctrl-
+- Search and replace (hidden, press Ctrl+Shift+E to show)
+- Backup files are stored on every save
 - German and English language
 
 Limitations:
@@ -25,3 +27,22 @@ Limitations:
 ![Screenshot monthly diagram](./screenshots/microaccounting-monthly.png)
 ![Screenshot shops bar chart](./screenshots/microaccounting-shops.png)
 
+# Installation
+
+Build:
+
+```
+make build
+```
+
+Install:
+
+```
+sudo make install
+```
+
+# Contributing
+Contributions are welcome. Please open an issue or a pull request.
+
+# License
+This project is licensed under the GPLv3 - see the [LICENSE](LICENSE) file for details
