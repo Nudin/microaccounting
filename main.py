@@ -14,9 +14,9 @@ import numpy as np
 import pandas as pd
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from PyQt6.QtCore import (QAbstractTableModel, QByteArray, QDate, QLibraryInfo,
-                          QLocale, QSettings, QSharedMemory, Qt, QTimer,
-                          QTranslator, pyqtSignal)
+from PyQt6.QtCore import (QAbstractTableModel, QByteArray, QCoreApplication,
+                          QDate, QLibraryInfo, QLocale, QSettings,
+                          QSharedMemory, Qt, QTimer, QTranslator, pyqtSignal)
 from PyQt6.QtGui import QFont, QIcon, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDateEdit,
                              QDialog, QDialogButtonBox, QDockWidget,
@@ -32,6 +32,12 @@ matplotlib.use("QtAgg")
 
 window = None
 
+APPNAME = "microaccounting"
+
+
+def tr(text: str, context="") -> str:
+    return QCoreApplication.translate(context, text)
+
 
 class ColumnsMeta(type):
     def __getitem__(cls, x):
@@ -42,37 +48,83 @@ class ColumnsMeta(type):
 
 
 class Columns(metaclass=ColumnsMeta):
-    Date = "Datum"
-    Shop = "Geschäft"
-    Category = "Kategorie"
-    Value = "Wert"
-    Description = "Ausgabe"
+    # Internal keys (stable, not translated)
+    Date = "date"
+    Shop = "shop"
+    Category = "category"
+    Value = "value"
+    Description = "description"
 
+    # CSV storage columns (keep stable keys)
     displayOrder = [Date, Category, Shop, Description, Value]
+
+    # Source texts for translation
     _displayTexts = {
-        Date: "Datum",
-        Shop: "Geschäft",
-        Category: "Kategorie",
-        Value: "Betrag",
-        Description: "Beschreibung",
+        Date: tr("Date"),
+        Shop: tr("Shop"),
+        Category: tr("Category"),
+        Value: tr("Amount"),
+        Description: tr("Description"),
     }
 
     @classmethod
     def displayText(cls, column):
-        return cls._displayTexts[column]
+        return tr(cls._displayTexts[column])
 
     @classmethod
     def index(cls, column):
         return cls.displayOrder.index(column)
 
 
-def install_translator(app: QApplication) -> None:
-    translator = QTranslator(app)
+def find_i18n_dir(appname: str) -> Path:
+    """
+    Resolve i18n directory using a fallback chain (first existing wins):
+      1) alongside this file: <module_dir>/i18n
+      2) XDG user data dir:    $XDG_DATA_HOME/<appname>/i18n  (or ~/.local/share)
+      3) system-wide:          /usr/local/share/<appname>/i18n
+      4) system-wide:          /usr/share/<appname>/i18n
+
+    If none exist, returns the first option (alongside this file) as a default.
+    """
+    module_i18n = Path(__file__).resolve().parent / "i18n"
+
+    xdg_data_home = Path(
+        os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")
+    )
+    user_i18n = xdg_data_home / appname / "i18n"
+
+    local_i18n = Path("/usr/local/share") / appname / "i18n"
+    system_i18n = Path("/usr/share") / appname / "i18n"
+
+    for candidate in (module_i18n, user_i18n, local_i18n, system_i18n):
+        if candidate.is_dir():
+            return candidate
+
+    # Fallback default when nothing exists yet
+    return module_i18n
+
+
+def install_translators(app: QApplication, ui_locale: QLocale | None = None) -> None:
+    """
+    Install Qt base translations + app translations.
+
+    App translations are expected as:
+      i18n/microaccounting_<locale>.qm
+    """
+    if ui_locale is None:
+        ui_locale = QLocale.system()
+
+    # 1) Qt (widgets, dialogs etc.)
+    qt_translator = QTranslator(app)
     qt_translations_path = QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)
-    if translator.load(QLocale.system(), "qtbase", "_", qt_translations_path):
-        app.installTranslator(translator)
-    else:
-        print("Übersetzung konnte nicht geladen werden.")
+    if qt_translator.load(ui_locale, "qtbase", "_", qt_translations_path):
+        app.installTranslator(qt_translator)
+
+    # 2) App
+    app_translator = QTranslator(app)
+    i18n_dir = find_i18n_dir(APPNAME)
+    if app_translator.load(ui_locale, APPNAME, "_", str(i18n_dir)):
+        app.installTranslator(app_translator)
 
 
 def sigint_handler(*args):
@@ -106,7 +158,8 @@ class DateDelegate(QStyledItemDelegate):
     def createEditor(self, parent, option, index):
         editor = QDateEdit(parent)
         editor.setCalendarPopup(True)
-        editor.setDisplayFormat("dd.MM.yyyy")
+        # Prefer locale format
+        editor.setDisplayFormat(QLocale().dateFormat(QLocale.FormatType.ShortFormat))
         return editor
 
     def setEditorData(self, editor, index):
@@ -120,7 +173,7 @@ class DateDelegate(QStyledItemDelegate):
 
     def displayText(self, value, locale):
         date = QDate.fromString(value, "yyyy-MM-dd")
-        return date.toString("dd.MM.yyyy")
+        return locale.toString(date, QLocale.FormatType.ShortFormat)
 
 
 class CurrencyDelegate(QStyledItemDelegate):
@@ -374,7 +427,7 @@ class PieCanvas(FigureCanvasQTAgg):
 
             # Combine the smallest categories into "other"
             other_sum = sum(sorted_data[:-4])
-            other_label = "Andere"
+            other_label = self.tr("Other")
 
             # Keep the largest 4 categories plus the "other" category
             data = list(sorted_data[-4:]) + [other_sum]
@@ -453,11 +506,10 @@ class ResizeAbleFontWindow:
 
 class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
     data_dir = (
-        Path(os.getenv("XDG_DATA_HOME", Path.home() / ".local" / "share"))
-        / "microaccounting"
+        Path(os.getenv("XDG_DATA_HOME", Path.home() / ".local" / "share")) / APPNAME
     )
-    file_path = data_dir / "Buchhaltung.csv"
-    settings = QSettings("microaccounting")
+    file_path = data_dir / "accounting.csv"
+    settings = QSettings(APPNAME)
 
     def __init__(self):
         Ui_MainWindow.__init__(self)
@@ -471,17 +523,23 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
         owner = self.settings.value("owner")
         if owner is None:
             owner, ok = QInputDialog.getText(
-                self, "Besitzername", "Bitte geben Sie Ihren Namen ein:"
+                self,
+                self.tr("Owner name"),
+                self.tr("Please enter your name:"),
             )
             if ok:
                 self.settings.setValue("owner", owner)
         if owner:
-            self.setWindowTitle(f"Buchhaltung von {owner}")
+            self.setWindowTitle(self.tr("Bookkeeping of {owner}").format(owner=owner))
+        else:
+            self.setWindowTitle(self.tr("Bookkeeping"))
 
         self.currency = self.settings.value("currency")
         if self.currency is None:
             self.currency, ok = QInputDialog.getText(
-                self, "Währung", "Bitte geben Sie das Währungssymbol ein:"
+                self,
+                self.tr("Currency"),
+                self.tr("Please enter the currency symbol:"),
             )
             if ok:
                 self.settings.setValue("currency", self.currency)
@@ -507,11 +565,12 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
         )
         self.resize_columns()
 
-        self.cat_chart = PieCanvas(self, title="Ausgaben pro Kategorie")
+        self.cat_chart = PieCanvas(self, title=self.tr("Expenses by category"))
         self.month_chart = BarCanvas(
-            self, title="Ausgaben pro Monat", currency=self.currency
+            self, title=self.tr("Expenses per month"), currency=self.currency
         )
-        self.shop_chart = PieCanvas(self, title="Ausgaben pro Geschäft")
+        self.shop_chart = PieCanvas(self, title=self.tr("Expenses by shop"))
+
         self.category_chart_layout.addWidget(self.cat_chart)
         self.monthly_chart_layout.addWidget(self.month_chart)
         self.shop_chart_layout.addWidget(self.shop_chart)
@@ -543,7 +602,7 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
     def handle_replace(self, pattern: str, replacement: str, regex: bool) -> None:
         count = self.model.replace(pattern, replacement, regex)
         self.search_replace_dialog.result_label.setText(
-            f"Replaced {count} occurrence(s)."
+            self.tr("Replaced {count} occurrence(s).").format(count=count)
         )
 
     def save_geometry(self):
@@ -596,8 +655,10 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
         if self.model.data_changed:
             reply = QMessageBox.question(
                 self,
-                "Ungespeicherte Änderungen",
-                "Es gibt ungespeicherte Änderungen. Möchten Sie speichern, bevor Sie schließen?",
+                self.tr("Unsaved changes"),
+                self.tr(
+                    "There are unsaved changes. Do you want to save before closing?"
+                ),
                 QMessageBox.StandardButton.Yes
                 | QMessageBox.StandardButton.No
                 | QMessageBox.StandardButton.Cancel,
@@ -706,7 +767,7 @@ class MicroAccounting(QMainWindow, Ui_MainWindow, ResizeAbleFontWindow):
         self.cat_chart.figure.savefig(home / "categories.png")
         self.shop_chart.figure.savefig(home / "shops.png")
         self.month_chart.figure.savefig(home / "monthly.png")
-        print("Figures saved to", home)
+        print(self.tr("Figures saved to {home}").format(home=home))
 
 
 class SearchAndReplaceDialog(QDialog, ResizeAbleFontWindow):
@@ -715,28 +776,28 @@ class SearchAndReplaceDialog(QDialog, ResizeAbleFontWindow):
     def __init__(self, parent=None, font_size=None) -> None:
         super().__init__(parent)
         ResizeAbleFontWindow.__init__(self, font_size)
-        self.setWindowTitle("Suchen und Ersetzen")
+        self.setWindowTitle(self.tr("Search and replace"))
 
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Suche nach...")
+        self.search_input.setPlaceholderText(self.tr("Search for..."))
 
         self.replace_input = QLineEdit()
-        self.replace_input.setPlaceholderText("Ersetzen durch...")
+        self.replace_input.setPlaceholderText(self.tr("Replace with..."))
 
-        self.regex_checkbox = QCheckBox("Regulärer Ausdruck")
+        self.regex_checkbox = QCheckBox(self.tr("Regular expression"))
 
         self.result_label = QLabel()
 
-        self.replace_button = QPushButton("Ersetzen")
-        self.close_button = QPushButton("Schließen")
+        self.replace_button = QPushButton(self.tr("Replace"))
+        self.close_button = QPushButton(self.tr("Close"))
 
         self.replace_button.clicked.connect(self.on_replace)
         self.close_button.clicked.connect(self.close)
 
         layout = QVBoxLayout()
-        layout.addWidget(QLabel("Suchen:"))
+        layout.addWidget(QLabel(self.tr("Search:")))
         layout.addWidget(self.search_input)
-        layout.addWidget(QLabel("Ersetzen:"))
+        layout.addWidget(QLabel(self.tr("Replace:")))
         layout.addWidget(self.replace_input)
         layout.addWidget(self.regex_checkbox)
         layout.addWidget(self.replace_button)
@@ -754,9 +815,6 @@ class SearchAndReplaceDialog(QDialog, ResizeAbleFontWindow):
 
 
 class EntryDialog(QDialog, ResizeAbleFontWindow):
-    DEFAULT_CATEGORIES: ClassVar[Set[str]] = set(
-        ["Lebensmittel", "Gastronomie", "Anschaffungen", "Geschenk", "Anderes"]
-    )
 
     def __init__(
         self, parent=None, categories=None, shops=None, font_size=None, currency="€"
@@ -764,8 +822,17 @@ class EntryDialog(QDialog, ResizeAbleFontWindow):
         QDialog.__init__(self, parent)
         ResizeAbleFontWindow.__init__(self, font_size)
         self.setWindowModality(Qt.WindowModality.WindowModal)
+        self.DEFAULT_CATEGORIES: ClassVar[Set[str]] = set(
+            [
+                tr("Groceries"),
+                tr("Restaurants"),
+                tr("Purchases"),
+                tr("Gift"),
+                tr("Other"),
+            ]
+        )
 
-        self.setWindowTitle("Eintrag hinzufügen")
+        self.setWindowTitle(self.tr("Add entry"))
         self.resize(500, 250)
 
         self.layout = QFormLayout(self)
@@ -784,7 +851,7 @@ class EntryDialog(QDialog, ResizeAbleFontWindow):
         self.category_edit.addItems(sorted(all_categories))
         self.category_edit.lineEdit().setMaxLength(30)
         self.category_edit.lineEdit().textEdited.connect(
-            self.validate_input("Kategorie")
+            self.validate_input(self.tr("Category"))
         )
         self.layout.addRow(
             f"{Columns.displayText(Columns.Category)}:", self.category_edit
@@ -794,7 +861,9 @@ class EntryDialog(QDialog, ResizeAbleFontWindow):
         self.shop_edit.setEditable(True)
         self.shop_edit.addItems(sorted(shops))
         self.shop_edit.lineEdit().setMaxLength(30)
-        self.shop_edit.lineEdit().textEdited.connect(self.validate_input("Geschäft"))
+        self.shop_edit.lineEdit().textEdited.connect(
+            self.validate_input(self.tr("Shop"))
+        )
         self.layout.addRow(f"{Columns.displayText(Columns.Shop)}:", self.shop_edit)
 
         self.description_edit = QLineEdit(self)
@@ -821,8 +890,10 @@ class EntryDialog(QDialog, ResizeAbleFontWindow):
             if len(text) >= 30:
                 QMessageBox.warning(
                     self,
-                    "Zu lang",
-                    f"Angabe zu {title} is zu lang. Bitte kürzen.",
+                    self.tr("Too long"),
+                    self.tr(
+                        "Value for {title} is too long. Please shorten.", "EntryDialog"
+                    ).format(title=title),
                 )
 
         return handler
@@ -838,33 +909,32 @@ class EntryDialog(QDialog, ResizeAbleFontWindow):
         elif amount == 0:
             QMessageBox.warning(
                 self,
-                "Ungültiger Eintrag",
-                "Der Betrag darf nicht Null sein.",
+                self.tr("Invalid entry"),
+                self.tr("Amount must not be zero."),
             )
         elif description == "":
             QMessageBox.warning(
                 self,
-                "Ungültiger Eintrag",
-                "Die Beschreibung darf nicht leer sein.",
+                self.tr("Invalid entry"),
+                self.tr("Description must not be empty."),
             )
 
 
 def main():
     signal.signal(signal.SIGINT, sigint_handler)
     app = QApplication(sys.argv)
-    shm = QSharedMemory("microaccounting")
+    shm = QSharedMemory(APPNAME)
     if not shm.create(1):
-        print("App läuft bereits.")
+        print(tr("App is already running."))
         sys.exit(0)
     app.setWindowIcon(QIcon("Bookkeeping_icon.jpeg"))
-    install_translator(app)
+    install_translators(app)
     global window
     window = MicroAccounting()
-    # Installiere den Translator
     window.show()
     timer = QTimer()
-    timer.start(500)  # You may change this if you wish.
-    timer.timeout.connect(lambda: None)  # Let the interpreter run each 500 ms.
+    timer.start(500)  # Let the interpreter run each 500 ms.
+    timer.timeout.connect(lambda: None)
     sys.exit(app.exec())
 
 

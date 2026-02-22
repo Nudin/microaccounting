@@ -8,6 +8,7 @@ ICON_FILE = $(APP_NAME).png
 MAIN_SCRIPT = main.py
 EXTRA_FILES = enhancedqtableview.py main_window.py
 DESKTOP_FILE = $(APP_NAME).desktop
+TRANSLATIONS_DIR = /usr/share/$(APP_NAME)/i18n
 
 # Installation rules
 install:
@@ -19,6 +20,8 @@ install:
 	install -d $(ICON_DIR)
 	install -m 644 $(ICON_FILE) $(ICON_DIR)/
 	install -m 644 $(DESKTOP_FILE) $(DESKTOP_DIR)/
+	mkdir -p $(TRANSLATIONS_DIR)
+	install -m 644 i18n/microaccounting_de.qm $(TRANSLATIONS_DIR)/
 
 uninstall:
 	@echo "Uninstalling $(APP_NAME)..."
@@ -26,5 +29,18 @@ uninstall:
 	rm -f $(BIN_DIR)/$(APP_NAME)
 	rm -f $(ICON_DIR)/$(ICON_FILE)
 	rm -f $(DESKTOP_DIR)/$(DESKTOP_FILE)
+
+main_window.py: main_window.ui
+	pyuic6 -x main_window.ui -o main_window.py
+
+ts:
+	pyside6-lupdate main.py main_window.ui -ts i18n/microaccounting_de.ts
+
+qm:
+	lrelease i18n/microaccounting_de.ts -qm i18n/microaccounting_de.qm
+
+translate: ts qm
+
+build: main_window.py translate
 
 .PHONY: install uninstall

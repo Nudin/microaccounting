@@ -10,13 +10,13 @@ Features:
 - View and edit expenses in a table
 - Drop down menus for categories and shops
 - Change font sizes by pressing	Ctrl+ and Ctrl-
+- German and English language
 
 Limitations:
 - No double	entry bookkeeping (On purpose)
 - Only expanses, no	incomes (On purpose)
 - No undo
 - No export
-- So far German only – will be translated to English if there is interest
 
 # Screenshots
 ![Screenshot](./screenshots/microaccounting.png)
